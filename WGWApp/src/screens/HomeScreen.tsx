@@ -4,6 +4,7 @@ import { View, Text, Platform, ScrollView, Alert } from "react-native"; // Add P
 import * as Haptics from "expo-haptics";
 import { useHomeScreen } from "../hooks/useHomeScreen";
 import { SettingsScreen } from "./SettingsScreen";
+import * as ImagePicker from "expo-image-picker";
 
 // Component imports
 import { RecorderSection } from "../components/RecorderSection";
@@ -17,6 +18,7 @@ import { SimpleProcessingOverlay } from "../components/SimpleProcessingOverlay";
 import { BottomNavigation } from "../components/BottomNavigation";
 import { CombinedStats } from "../components/CombinedStats";
 import { DailyProgressView } from "../components/DailyProgressView";
+import { ImageDescriptionModal } from "../components/ImageDescriptionModal";
 
 // Hooks and utilities
 import { getStyles } from "../styles/homeScreenStyles";
@@ -40,6 +42,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     transcription: string;
     timestamp: Date;
   } | null>(null);
+
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const {
     // State
@@ -182,10 +187,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     console.log("Entry pressed:", entry.id);
   };
 
-  const onEntryDeleted = (entryId: number) => {
-    console.log("Entry deleted:", entryId);
-  };
-
   const [isActiveRecording, setIsActiveRecording] = useState(false);
 
   const handleRecordPress = () => {
@@ -193,6 +194,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setIsActiveRecording(false);
     } else {
       setIsActiveRecording(true);
+    }
+  };
+
+  const handleAddImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setSelectedImage(result.assets[0].uri);
+      setShowImageModal(true);
     }
   };
 
@@ -340,6 +353,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 categories={categories || []}
                 onCategorySelect={handleCategorySelect}
                 compact={true}
+                onAddImagePress={handleAddImage} // <-- Pass this prop!
               />
             </View>
           </View>
@@ -351,7 +365,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {todaysEntry ? (
         // When entry is complete, show DailyProgressView in full screen black container
         <ScrollView
-          style={{ flex: 1, backgroundColor: '#000000' }}
+          style={{ flex: 1, backgroundColor: "#000000" }}
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           bounces={false}
@@ -459,6 +473,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           message={notificationData.aiResponse}
           type="success"
           isDarkMode={isDarkMode}
+        />
+      )}
+
+      {/* Image Description Modal */}
+      {showImageModal && selectedImage && (
+        <ImageDescriptionModal
+          imageUri={selectedImage}
+          onClose={() => setShowImageModal(false)}
+          onSubmit={async (description) => {
+            // TODO: Analyze image and description here
+            setShowImageModal(false);
+            setSelectedImage(null);
+          }}
         />
       )}
     </View>

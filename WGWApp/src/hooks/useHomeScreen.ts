@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ScrollView, Alert } from "react-native";
 import * as Haptics from "expo-haptics";
-import { SupabaseService } from "../services/supabase";
 import { supabase } from "../config/supabase";
 import { openai } from "../config/openai";
 import { isToday, parseISO } from "date-fns";
@@ -107,7 +106,17 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
       setEntriesLoading(true);
       console.log("📥 Loading entries for user:", user.id);
 
-      const userEntries = await SupabaseService.getUserEntries(user.id);
+      // REPLACE THIS:
+      // const userEntries = await SupabaseService.getUserEntries(user.id);
+      // WITH:
+      const { data: userEntries, error } = await supabase
+        .from("daily_entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
       console.log("📥 Loaded entries:", userEntries?.length || 0);
 
       if (userEntries && userEntries.length > 0) {
@@ -140,7 +149,17 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
 
     try {
       setStreakLoading(true);
-      const userStreak = await SupabaseService.getUserStreak(user.id);
+      // REPLACE THIS:
+      // const userStreak = await SupabaseService.getUserStreak(user.id);
+      // WITH:
+      const { data: userStreak, error } = await supabase
+        .from("user_streaks")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) throw error;
+
       setStreak(userStreak || { current_streak: 0, longest_streak: 0 });
     } catch (error) {
       console.error("Failed to load streak:", error);
@@ -150,28 +169,20 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
     }
   };
 
-  // Initialize data
-  useEffect(() => {
-    if (user?.id) {
-      // Reset modal states when user loads
-      setShowSettings(false);
-      setShowHistory(false);
-      setShowDrawer(false);
-      setShowCelebration(false);
-      setShowNotification(false);
-
-      // Load user data immediately (no timeout needed)
-      loadUserEntries();
-      loadUserStreak();
-      loadUserCategories();
-    }
-  }, [user]);
-
   // Load user categories
   const loadUserCategories = async () => {
     try {
-      const userCategories = await SupabaseService.getUserCategories(user.id);
-      setCategories(userCategories);
+      // REPLACE THIS:
+      // const userCategories = await SupabaseService.getUserCategories(user.id);
+      // WITH:
+      const { data: userCategories, error } = await supabase
+        .from("user_categories")
+        .select("category")
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      setCategories(userCategories?.map((c) => c.category) || []);
     } catch (error) {
       console.error("Failed to load categories:", error);
       // Use defaults
@@ -538,8 +549,12 @@ Focus on being genuinely encouraging while helping them deepen their gratitude p
   // Update streak function
   const updateStreak = async (userId: string) => {
     try {
-      // This should call your SupabaseService method
-      await SupabaseService.updateUserStreak(userId);
+      // REPLACE THIS:
+      // await SupabaseService.updateUserStreak(userId);
+      // WITH:
+      // (You may want to call your updateUserStreak logic directly here, or use your slice's thunk if available)
+      // For now, just reload the streak:
+      await loadUserStreak();
     } catch (error) {
       console.error("❌ Error updating streak:", error);
     }
@@ -548,7 +563,17 @@ Focus on being genuinely encouraging while helping them deepen their gratitude p
   // Fetch streak function
   const fetchStreak = async (userId: string) => {
     try {
-      const streak = await SupabaseService.getUserStreak(userId);
+      // REPLACE THIS:
+      // const streak = await SupabaseService.getUserStreak(userId);
+      // WITH:
+      const { data: streak, error } = await supabase
+        .from("user_streaks")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+
+      if (error) throw error;
+
       return streak || { current_streak: 0, longest_streak: 0 };
     } catch (error) {
       console.error("❌ Error fetching streak:", error);

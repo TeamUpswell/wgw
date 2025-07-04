@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Button, Alert } from 'react-native';
-import { supabase } from '../services/supabase';
+import { supabase } from '../config/supabase';
 
 export const APITestComponent: React.FC = () => {
   const [testResults, setTestResults] = useState<string>('');
@@ -10,7 +10,7 @@ export const APITestComponent: React.FC = () => {
       const { data, error } = await supabase.from('users').select('count');
       if (error) throw error;
       setTestResults('✅ Supabase Connected Successfully!');
-    } catch (error) {
+    } catch (error: any) {
       setTestResults(`❌ Supabase Error: ${error.message}`);
     }
   };

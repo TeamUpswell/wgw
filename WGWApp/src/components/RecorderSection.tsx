@@ -14,6 +14,15 @@ import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 import { CategorySpinner } from "./CategorySpinner";
 
+// Import supabase client
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize client using environment variables
+const supabase = createClient(
+  process.env.EXPO_PUBLIC_SUPABASE_URL!,
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 const RECORDING_LIMIT_SECONDS = 30;
 
 interface RecorderSectionProps {
@@ -28,6 +37,7 @@ interface RecorderSectionProps {
   categories: string[]; // Add categories prop
   onCategorySelect: (category: string) => void; // Add category select handler
   compact?: boolean; // Add compact prop
+  onAddImagePress?: () => void; // Add image press handler
 }
 
 export const RecorderSection: React.FC<RecorderSectionProps> = ({
@@ -38,6 +48,7 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
   categories,
   onCategorySelect,
   compact = false,
+  onAddImagePress,
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -263,6 +274,27 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
     return false;
   };
 
+  const uploadImageToSupabase = async (uri: string, userId: string) => {
+    // Convert image to blob
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    // Create a unique filename
+    const fileExt = uri.split(".").pop();
+    const fileName = `${userId}_${Date.now()}.${fileExt}`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from("wgw-images")
+      .upload(fileName, blob, {
+        contentType: blob.type,
+        upsert: false,
+      });
+
+    if (error) throw error;
+    return data.path; // or data.Key
+  };
+
   return (
     <View style={styles.recorderContainer}>
       <View style={styles.recorderHeader}>
@@ -283,18 +315,26 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
       />
 
       {/* Recording Button */}
-      <TouchableOpacity
-        style={[
-          styles.recordButton,
-          isRecording && styles.recordingButton,
-          isProcessing && styles.disabledButton,
-        ]}
-        onPress={isRecording ? stopRecording : startRecording}
-        disabled={isProcessing}
-        activeOpacity={0.8}
-      >
-        <Ionicons name={isRecording ? "stop" : "mic"} size={70} color="#fff" />
-      </TouchableOpacity>
+      <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 20 }}>
+        <TouchableOpacity
+          style={styles.recordButton}
+          onPress={isRecording ? stopRecording : startRecording}
+          disabled={isProcessing}
+          activeOpacity={0.8}
+        >
+          <Ionicons name={isRecording ? "stop" : "mic"} size={70} color="#fff" />
+        </TouchableOpacity>
+
+        {/* Camera Button */}
+        <TouchableOpacity
+          style={[styles.recordButton, { marginLeft: 20, backgroundColor: "#FF6B35" }]}
+          onPress={onAddImagePress}
+          disabled={isProcessing}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="image-outline" size={48} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
       {/* Recording Status */}
       {isRecording && (
@@ -509,6 +549,19 @@ const getStyles = (isDarkMode: boolean, compact: boolean) =>
       shadowOpacity: 0.25,
       shadowRadius: 5,
       marginTop: 10, // Increased from 5
+    },
+    micButton: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: "#8BC34A",
+      justifyContent: "center",
+      alignItems: "center",
+      elevation: 5,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 5,
     },
     recordingButton: {
       backgroundColor: "#e74c3c",

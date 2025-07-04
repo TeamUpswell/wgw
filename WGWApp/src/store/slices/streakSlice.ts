@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { SupabaseService } from "../../services/supabase";
-import { supabase } from "../../config/supabase"; // Add this missing import!
+import { supabase } from "../../config/supabase";
+// import { SupabaseService } from "../../services/supabase"; // <
 
 interface UserStreak {
   id: string;
@@ -27,8 +27,13 @@ export const fetchUserStreak = createAsyncThunk(
   "streak/fetchUserStreak",
   async (userId: string) => {
     try {
-      const result = await SupabaseService.getUserStreak(userId);
-      return result;
+      const { data, error } = await supabase
+        .from("user_streaks")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error("❌ Streak fetch error:", error);
       throw error;

@@ -10,8 +10,7 @@ import {
   TextInput,
   Modal,
 } from "react-native";
-import { supabase } from "../services/supabase";
-import { SupabaseService } from "../services/supabase";
+import { supabase } from "../config/supabase";
 import type { User } from "@supabase/supabase-js";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
@@ -57,9 +56,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const loadUserCategories = async () => {
     try {
       console.log("📂 Loading categories for user:", user.id);
-      const userCategories = await SupabaseService.getUserCategories(user.id);
+      const { data, error } = await supabase
+        .from("user_categories")
+        .select("category")
+        .eq("user_id", user.id);
 
-      if (userCategories && userCategories.length > 0) {
+      let userCategories = data?.map((c) => c.category) || [];
+
+      if (error) throw error;
+
+      if (userCategories.length > 0) {
         console.log("✅ Categories loaded:", userCategories);
         setCategories(userCategories);
         onCategoriesUpdate(userCategories);
@@ -99,11 +105,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
     try {
       setStreakLoading(true);
-      const userStreak = await SupabaseService.getUserStreak(user.id);
+      const { data: userStreak, error } = await supabase
+        .from("user_streaks")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
       setStreak(userStreak || { current_streak: 0, longest_streak: 0 });
     } catch (error) {
       console.warn("Streak loading failed, using defaults:", error);
-      // Don't throw error, just use defaults
       setStreak({ current_streak: 0, longest_streak: 0 });
     } finally {
       setStreakLoading(false);

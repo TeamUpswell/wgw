@@ -9,6 +9,7 @@ interface BottomNavigationProps {
   isDarkMode: boolean;
   isRecording?: boolean;
   showAddAnother?: boolean;
+  onAddImagePress?: () => void;
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
@@ -18,6 +19,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   isDarkMode,
   isRecording = false,
   showAddAnother,
+  onAddImagePress,
 }) => {
   const styles = getStyles(isDarkMode);
 
@@ -51,9 +53,22 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           onPress={onRecordPress}
           activeOpacity={0.8}
         >
-          <Ionicons name={isRecording ? "stop" : "mic"} size={32} color="#fff" />
+          <Ionicons
+            name={isRecording ? "stop" : "mic"}
+            size={32}
+            color="#fff"
+          />
         </TouchableOpacity>
       )}
+
+      {/* Add Image Button */}
+      <TouchableOpacity
+        style={styles.navButton}
+        onPress={onAddImagePress}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="image-outline" size={32} color="#FF6B35" />
+      </TouchableOpacity>
 
       {/* Settings Button */}
       <TouchableOpacity

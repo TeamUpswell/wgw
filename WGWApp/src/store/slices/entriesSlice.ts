@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import { DailyEntry } from "../../types";
-import { SupabaseService } from "../../services/supabase";
+import { supabase } from "../../config/supabase";
 
 interface EntriesState {
   entries: DailyEntry[];
@@ -26,18 +26,38 @@ export const createEntry = createAsyncThunk(
   }) => {
     console.log("🚀 Redux createEntry called with:", entry);
 
-    const result = await SupabaseService.createEntry(entry);
+    const { data, error } = await supabase
+      .from("daily_entries")
+      .insert([
+        {
+          user_id: entry.user_id,
+          category: entry.category,
+          audio_url: entry.audioUri,
+          transcription: entry.transcription,
+          ai_response: entry.ai_response,
+        },
+      ])
+      .select()
+      .single();
 
-    console.log("✅ Redux createEntry result:", result);
-    return result;
+    if (error) throw error;
+
+    console.log("✅ Redux createEntry result:", data);
+    return data;
   }
 );
 
 export const fetchUserEntries = createAsyncThunk(
   "entries/fetchUserEntries",
   async (userId: string) => {
-    const entries = await SupabaseService.getUserEntries(userId);
-    return entries;
+    const { data, error } = await supabase
+      .from("daily_entries")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 );
 
