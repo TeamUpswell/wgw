@@ -376,14 +376,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           onMomentumScrollEnd={handleScrollEnd}
         >
           <View style={styles.lowerSection}>
-            {/* Encouragement Message */}
-            <View style={styles.cardWrapper}>
-              <EncouragementMessage
-                todaysEntryCount={todaysEntries?.length || 0}
-                isDarkMode={isDarkMode}
-              />
-            </View>
-
             {/* This Week Stats */}
             <View style={styles.cardWrapper}>
               <CombinedStats
@@ -399,11 +391,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Bottom Navigation - Also fixed */}
       <BottomNavigation
-        onRecordPress={handleRecordPress}
+        onRecordPress={
+          todaysEntry
+            ? () => setTodaysEntry(null) // Go back to incomplete state
+            : handleRecordPress // Normal recording handler
+        }
         onHistoryPress={() => setShowHistory(true)}
         onSettingsPress={() => setShowSettings(true)}
         isDarkMode={isDarkMode}
         isRecording={isActiveRecording}
+        showAddAnother={!!todaysEntry}
       />
 
       {/* Processing Modal */}

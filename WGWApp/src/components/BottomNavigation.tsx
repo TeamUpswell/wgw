@@ -1,5 +1,5 @@
 import React from "react";
-import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 interface BottomNavigationProps {
@@ -8,6 +8,7 @@ interface BottomNavigationProps {
   onSettingsPress: () => void;
   isDarkMode: boolean;
   isRecording?: boolean;
+  showAddAnother?: boolean;
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
@@ -16,6 +17,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onSettingsPress,
   isDarkMode,
   isRecording = false,
+  showAddAnother,
 }) => {
   const styles = getStyles(isDarkMode);
 
@@ -34,14 +36,24 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         />
       </TouchableOpacity>
 
-      {/* Record Button */}
-      <TouchableOpacity
-        style={[styles.recordButton, isRecording && styles.recordingButton]}
-        onPress={onRecordPress}
-        activeOpacity={0.8}
-      >
-        <Ionicons name={isRecording ? "stop" : "mic"} size={32} color="#fff" />
-      </TouchableOpacity>
+      {/* Record Button or Add Another Button */}
+      {showAddAnother ? (
+        <TouchableOpacity
+          style={styles.addAnotherButton}
+          onPress={onRecordPress}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="refresh-circle" size={54} color="#fff" />
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.recordButton, isRecording && styles.recordingButton]}
+          onPress={onRecordPress}
+          activeOpacity={0.8}
+        >
+          <Ionicons name={isRecording ? "stop" : "mic"} size={32} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {/* Settings Button */}
       <TouchableOpacity
@@ -94,5 +106,18 @@ const getStyles = (isDarkMode: boolean) =>
     },
     recordingButton: {
       backgroundColor: "#e74c3c",
+    },
+    addAnotherButton: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: "#FF6B35",
+      justifyContent: "center",
+      alignItems: "center",
+      elevation: 5,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 5,
     },
   });
