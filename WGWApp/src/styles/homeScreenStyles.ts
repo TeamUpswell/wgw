@@ -16,17 +16,55 @@ export const getStyles = (isDarkMode: boolean) =>
     // ===== MAIN CONTAINER STYLES =====
     container: {
       flex: 1,
-      backgroundColor: isDarkMode ? "#1a1a1a" : "#f5f5f5", // Overall app background
+      backgroundColor: isDarkMode ? "#1a1a1a" : "#f5f5f5",
     },
-    content: {
-      flex: 1,
-      paddingBottom: 80, // Space at bottom to prevent content hiding behind bottom navigation
+    
+    // ===== FIXED TOP BLACK SECTION =====
+    topBlackSection: {
+      backgroundColor: "#000000",
+      paddingTop: 45, // Increased from 45
+      paddingBottom: 20, // Increased from 15
+      position: 'relative',
+      zIndex: 10,
+    },
+    
+    recorderInBlackSection: {
+      paddingHorizontal: 20, // Add padding only to the recorder content
+    },
+    
+    // ===== SECTION DIVIDER =====
+    sectionDivider: {
+      height: 2, // Thickness of the divider
+      backgroundColor: "#333", // Dark gray line
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+      zIndex: 9, // Below the top section
+    },
+    
+    // ===== SCROLLABLE CONTENT =====
+    scrollContent: {
+      flex: 1, // Take remaining space
+      backgroundColor: isDarkMode ? "#1a1a1a" : "#f5f5f5",
+    },
+    
+    scrollContentContainer: {
+      flexGrow: 1, // Allow content to grow
+      paddingBottom: 20, // Space at bottom
+    },
+    
+    // ===== LOWER SECTION =====
+    lowerSection: {
+      paddingTop: 20, // Space from divider to first card
+      paddingBottom: 20, // Space at bottom
     },
     
     // ===== WRAPPER STYLES =====
     cardWrapper: {
-      paddingHorizontal: 20, // Left/right padding - controls card width (screen width - 40px total)
-      marginBottom: 15, // Space BETWEEN cards vertically
+      paddingHorizontal: 20,
+      marginBottom: 15,
     },
     topSection: {
       marginTop: 60, // Increase from 30 to 60 for more space from TOP of screen
@@ -82,7 +120,7 @@ export const getStyles = (isDarkMode: boolean) =>
 
     // ===== CATEGORY SLIDER STYLES (Inside Recorder) =====
     categorySliderInRecorder: {
-      marginTop: 15, // Space ABOVE the category slider
+      marginTop: 30, // Space ABOVE the category slider
       marginBottom: 10, // Space BELOW the category slider
       paddingHorizontal: 10, // Left/right padding for the slider container
       width: "100%",

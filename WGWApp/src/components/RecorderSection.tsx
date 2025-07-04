@@ -259,9 +259,9 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
         {/* Category Selection */}
         <View
           style={{
-            height: 50, // Fixed height
-            overflow: "hidden", // Hide any overflow
-            marginBottom: 20,
+            height: 60, // Increased from 50
+            overflow: "hidden",
+            marginBottom: 25, // Increased from 20
           }}
         >
           <ScrollView
@@ -269,13 +269,13 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
             horizontal
             showsHorizontalScrollIndicator={false}
             style={{
-              height: 50, // Match container height
+              height: 60, // Match container height
             }}
             contentContainerStyle={{
               paddingHorizontal: 10,
               alignItems: "center",
-              minHeight: 50, // Ensure minimum height
-              maxHeight: 50, // Ensure maximum height
+              minHeight: 60, // Match new height
+              maxHeight: 60, // Match new height
             }}
             scrollEnabled={true}
             bounces={false}
@@ -288,16 +288,9 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
                 style={[
                   styles.categoryButton,
                   selectedCategory === category && styles.selectedCategoryButton,
-                  // Add this to override ANY external styles:
-                  {
-                    borderWidth: 2,
-                    borderColor:
-                      selectedCategory === category ? "#FF6B35" : "transparent",
-                    transform: [], // Force empty transform array
-                  },
                 ]}
                 onPress={() => handleCategoryPress(category)}
-                activeOpacity={0.9} // Change from 0.8 to 0.9 (less visual change)
+                activeOpacity={0.9}
               >
                 <Text
                   style={[
@@ -416,7 +409,7 @@ const getStyles = (isDarkMode: boolean, compact: boolean) =>
     recorderContainer: {
       backgroundColor: isDarkMode ? "#2a2a2a" : "#ffffff",
       borderRadius: 20,
-      padding: compact ? 10 : 15,
+      padding: compact ? 15 : 20, // Increased from 10 : 15
       marginBottom: 10,
       alignItems: "center",
       shadowColor: "#000",
@@ -429,35 +422,35 @@ const getStyles = (isDarkMode: boolean, compact: boolean) =>
     },
     recorderHeader: {
       alignItems: "center",
-      marginBottom: 8, // Reduced spacing
+      marginBottom: 15, // Increased from 8
     },
     recorderTitle: {
-      fontSize: compact ? 18 : 20, // Reduced size in compact mode
+      fontSize: compact ? 20 : 22, // Increased from 18 : 20
       fontWeight: "800",
       color: isDarkMode ? "#fff" : "#2c3e50",
       textAlign: "center",
-      marginBottom: 4,
+      marginBottom: 6, // Increased from 4
     },
     recorderSubtitle: {
-      fontSize: compact ? 12 : 14, // Reduced size in compact mode
+      fontSize: compact ? 13 : 15, // Increased from 12 : 14
       color: isDarkMode ? "#aaa" : "#666",
       textAlign: "center",
       fontStyle: "italic",
-      marginBottom: 3,
+      marginBottom: 8, // Increased from 3
     },
     categoryContainer: {
       width: "90%",
-      marginBottom: 10, // Reduced from 15
-      height: compact ? 70 : 90, // Reduced height in compact mode
+      marginBottom: 15, // Increased from 10
+      height: compact ? 70 : 90, // Increased from 60 : 80
       justifyContent: "center",
-      paddingTop: 10,
+      paddingTop: 20,
     },
     categoryLabel: {
-      fontSize: 16,
+      fontSize: 14, // Reduced from 16 for better proportion
       color: isDarkMode ? "#ccc" : "#666",
-      marginBottom: 10, // ← Tighter to slider
+      marginBottom: 15, // Increased from 10
       textAlign: "center",
-      marginTop: 5, // ← Smaller gap from subtitle
+      marginTop: -10, // Adjusted from -15
     },
     categoryScroll: {
       flexGrow: 0,
@@ -477,20 +470,18 @@ const getStyles = (isDarkMode: boolean, compact: boolean) =>
       paddingHorizontal: 20,
       paddingVertical: 12,
       borderRadius: 25,
-      marginHorizontal: 8, // ← 8px on each side = 16px total
-      borderWidth: 2,
-      borderColor: "transparent",
-      minWidth: 120, // ← Fixed width for consistent spacing
-      height: 45,
+      marginHorizontal: 8,
+      borderWidth: 2, // Always have a border
+      borderColor: isDarkMode ? "#333" : "#f0f0f0", // Make border same color as background when not selected
+      minWidth: 120,
+      height: 45, // Fixed height
       alignItems: "center",
       justifyContent: "center",
     },
     selectedCategoryButton: {
       backgroundColor: "#FF6B35",
-      borderColor: "#FF6B35",
-      height: 45,
-      borderWidth: 2, // ← Same as normal button
-      // Remove ALL other properties that could cause shifting
+      borderColor: "#FF6B35", // Only change colors, not dimensions
+      // Remove ALL other properties - only color changes
     },
     recommendedCategoryButton: {
       borderColor: "#FFD700",
@@ -532,9 +523,9 @@ const getStyles = (isDarkMode: boolean, compact: boolean) =>
       fontWeight: "600",
     },
     recordButton: {
-      width: 90, // Reduced from 110
-      height: 90, // Reduced from 110
-      borderRadius: 45,
+      width: 100, // Increased from 90
+      height: 100, // Increased from 90
+      borderRadius: 50,
       backgroundColor: "#FF6B35",
       justifyContent: "center",
       alignItems: "center",
@@ -543,7 +534,7 @@ const getStyles = (isDarkMode: boolean, compact: boolean) =>
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
       shadowRadius: 5,
-      marginTop: 5,
+      marginTop: 10, // Increased from 5
     },
     recordingButton: {
       backgroundColor: "#e74c3c",
@@ -600,7 +591,7 @@ const getStyles = (isDarkMode: boolean, compact: boolean) =>
       fontSize: 14,
       color: isDarkMode ? "#aaa" : "#666",
       textAlign: "center",
-      marginTop: 16,
+      marginTop: 20, // Increased from 16
     },
     processingContainer: {
       marginTop: 15,

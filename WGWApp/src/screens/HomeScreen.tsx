@@ -90,49 +90,59 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Encouragement Message at Top */}
-        <View style={styles.cardWrapper}>
-          <EncouragementMessage
-            todaysEntryCount={todaysEntries?.length || 0}
-            isDarkMode={isDarkMode}
-          />
-        </View>
-
-        {/* Recorder Section - Same wrapper */}
-        <View style={styles.cardWrapper}>
+      {/* Fixed Top Black Section - Outside ScrollView */}
+      <View style={styles.topBlackSection}>
+        <View style={styles.recorderInBlackSection}>
           <RecorderSection
             selectedCategory={selectedCategory || getTodaysCategory(categories)}
             onRecordingComplete={handleRecordingComplete}
             isProcessing={isProcessing}
-            isDarkMode={isDarkMode}
+            isDarkMode={true} // Force dark mode for this section
             categories={categories || []}
             onCategorySelect={handleCategorySelect}
+            compact={true} // Use compact mode for fixed header
           />
         </View>
+      </View>
 
-        {/* This Week Stats - Same wrapper */}
-        <View style={styles.cardWrapper}>
-          <CombinedStats
-            entries={entries || []}
-            categories={categories || []}
-            isDarkMode={isDarkMode}
-            todaysEntryCount={todaysEntries?.length || 0}
-          />
+      {/* Full Width Divider/Break */}
+      <View style={styles.sectionDivider} />
+
+      {/* Scrollable Content Below */}
+      <ScrollView
+        style={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
+        {/* Lower White/Gray Section */}
+        <View style={styles.lowerSection}>
+          {/* Encouragement Message */}
+          <View style={styles.cardWrapper}>
+            <EncouragementMessage
+              todaysEntryCount={todaysEntries?.length || 0}
+              isDarkMode={isDarkMode}
+            />
+          </View>
+
+          {/* This Week Stats */}
+          <View style={styles.cardWrapper}>
+            <CombinedStats
+              entries={entries || []}
+              categories={categories || []}
+              isDarkMode={isDarkMode}
+              todaysEntryCount={todaysEntries?.length || 0}
+            />
+          </View>
+
+          {/* Add any other scrollable content here */}
         </View>
       </ScrollView>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - Also fixed */}
       <BottomNavigation
         onRecordPress={handleRecordPress}
-        onHistoryPress={() => {
-          console.log("📜 History button pressed");
-          setShowHistory(true);
-        }}
-        onSettingsPress={() => {
-          console.log("⚙️ Settings button pressed");
-          setShowSettings(true);
-        }}
+        onHistoryPress={() => setShowHistory(true)}
+        onSettingsPress={() => setShowSettings(true)}
         isDarkMode={isDarkMode}
         isRecording={isActiveRecording}
       />
