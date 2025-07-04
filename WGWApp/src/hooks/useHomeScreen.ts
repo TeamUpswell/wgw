@@ -39,6 +39,10 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
     "transcribing" | "analyzing" | "generating" | "complete"
   >("transcribing");
 
+  // New state variables
+  const [hasCompletedToday, setHasCompletedToday] = useState(false);
+  const [nextEntryTime, setNextEntryTime] = useState<Date | null>(null);
+
   // Refs
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -291,21 +295,16 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
     transcription: string,
     category: string
   ) => {
+    setIsProcessing(true);
+    
     try {
-      setProcessingStage("transcribing");
-      setIsProcessing(true);
-
       // Transcribe audio
       const finalTranscription = transcription || (await transcribeAudio(audioUri));
       console.log("📝 Transcription:", finalTranscription);
 
-      setProcessingStage("analyzing");
-
       // Get AI response
       const aiResponse = await getAIResponse(finalTranscription, category);
       console.log("🤖 AI Response:", aiResponse);
-
-      setProcessingStage("saving");
 
       // Store notification data BEFORE creating entry
       setNotificationData({
@@ -580,6 +579,10 @@ Focus on being genuinely encouraging while helping them deepen their gratitude p
       notificationData,
       processingStage,
       setProcessingStage,
+      hasCompletedToday,
+      setHasCompletedToday,
+      nextEntryTime,
+      setNextEntryTime,
 
       // Functions
       handleRecordingComplete,

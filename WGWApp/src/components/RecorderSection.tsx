@@ -12,6 +12,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
+import { ProcessingAnimation } from "./ProcessingAnimation";
+import { CompletionCountdown } from "./CompletionCountdown";
 
 const RECORDING_LIMIT_SECONDS = 30;
 
@@ -27,6 +29,8 @@ interface RecorderSectionProps {
   categories: string[]; // Add categories prop
   onCategorySelect: (category: string) => void; // Add category select handler
   compact?: boolean; // Add compact prop
+  showCompletion?: boolean; // Add this prop
+  nextEntryTime?: Date; // Add this prop
 }
 
 export const RecorderSection: React.FC<RecorderSectionProps> = ({
@@ -37,9 +41,15 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
   categories,
   onCategorySelect,
   compact = false, // Default to false
+  showCompletion = false,
+  nextEntryTime = new Date(Date.now() + 24 * 60 * 60 * 1000), // Default to 24 hours later
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [showCompletionState, setShowCompletion] = useState(showCompletion);
+  const [nextEntryTimeState, setNextEntryTime] = useState<Date | null>(
+    nextEntryTime
+  );
   const recording = useRef<Audio.Recording | null>(null);
   const durationInterval = useRef<NodeJS.Timeout | null>(null);
   const recordingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -247,126 +257,134 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
 
   return (
     <View style={styles.recorderContainer}>
-      <View style={styles.recorderHeader}>
-        <Text style={styles.recorderTitle}>What's Going Well?</Text>
-        <Text style={styles.recorderSubtitle}>
-          The question that changes everything
-        </Text>
-      </View>
+      {/* Show countdown if completed today */}
+      {showCompletionState ? (
+        <CompletionCountdown
+          nextEntryTime={nextEntryTimeState || new Date()}
+          isDarkMode={isDarkMode}
+        />
+      ) : (
+        <>
+          <View style={styles.recorderHeader}>
+            <Text style={styles.recorderTitle}>What's Going Well?</Text>
+            <Text style={styles.recorderSubtitle}>
+              The question that changes everything
+            </Text>
+          </View>
 
-      {/* Category Slider with Auto-Selection */}
-      <View style={styles.categoryContainer}>
-        {/* Category Selection */}
-        <View
-          style={{
-            height: 60, // Increased from 50
-            overflow: "hidden",
-            marginBottom: 25, // Increased from 20
-          }}
-        >
-          <ScrollView
-            ref={categoryScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{
-              height: 60, // Match container height
-            }}
-            contentContainerStyle={{
-              paddingHorizontal: 10,
-              alignItems: "center",
-              minHeight: 60, // Match new height
-              maxHeight: 60, // Match new height
-            }}
-            scrollEnabled={true}
-            bounces={false}
-            directionalLockEnabled={true} // iOS: Lock to horizontal direction
-            disableIntervalMomentum={true} // Android: Prevent vertical momentum
-          >
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category}
-                style={[
-                  styles.categoryButton,
-                  selectedCategory === category && styles.selectedCategoryButton,
-                ]}
-                onPress={() => handleCategoryPress(category)}
-                activeOpacity={0.9}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    selectedCategory === category && styles.selectedCategoryText,
-                  ]}
-                >
-                  {category}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        <Text style={styles.categoryLabel}>Scroll to choose your focus</Text>
-      </View>
-
-      {/* Recording Button */}
-      <TouchableOpacity
-        style={[
-          styles.recordButton,
-          isRecording && styles.recordingButton,
-          isProcessing && styles.disabledButton,
-        ]}
-        onPress={isRecording ? stopRecording : startRecording}
-        disabled={isProcessing}
-        activeOpacity={0.8}
-      >
-        <Ionicons name={isRecording ? "stop" : "mic"} size={70} color="#fff" />
-      </TouchableOpacity>
-
-      {/* Recording Status */}
-      {isRecording && (
-        <View style={styles.recordingStatus}>
-          {/* Progress Bar */}
-          <View style={styles.progressContainer}>
+          {/* Category Slider with Auto-Selection */}
+          <View style={styles.categoryContainer}>
+            {/* Category Selection */}
             <View
-              style={[
-                styles.progressBar,
-                { width: `${getProgressPercentage()}%` },
-              ]}
-            />
+              style={{
+                height: 60, // Increased from 50
+                overflow: "hidden",
+                marginBottom: 25, // Increased from 20
+              }}
+            >
+              <ScrollView
+                ref={categoryScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{
+                  height: 60, // Match container height
+                }}
+                contentContainerStyle={{
+                  paddingHorizontal: 10,
+                  alignItems: "center",
+                  minHeight: 60, // Match new height
+                  maxHeight: 60, // Match new height
+                }}
+                scrollEnabled={true}
+                bounces={false}
+                directionalLockEnabled={true} // iOS: Lock to horizontal direction
+                disableIntervalMomentum={true} // Android: Prevent vertical momentum
+              >
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.categoryButton,
+                      selectedCategory === category && styles.selectedCategoryButton,
+                    ]}
+                    onPress={() => handleCategoryPress(category)}
+                    activeOpacity={0.9}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        selectedCategory === category && styles.selectedCategoryText,
+                      ]}
+                    >
+                      {category}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <Text style={styles.categoryLabel}>Scroll to choose your focus</Text>
           </View>
 
-          {/* Timer Display */}
-          <View style={styles.timerContainer}>
-            <View style={styles.recordingIndicator} />
-            <Text style={styles.timerText}>
-              {formatDuration(recordingDuration)} remaining
-            </Text>
-          </View>
+          {/* Recording Button */}
+          <TouchableOpacity
+            style={[
+              styles.recordButton,
+              isRecording && styles.recordingButton,
+              isProcessing && styles.disabledButton,
+            ]}
+            onPress={isRecording ? stopRecording : startRecording}
+            disabled={isProcessing}
+            activeOpacity={0.8}
+          >
+            <Ionicons name={isRecording ? "stop" : "mic"} size={70} color="#fff" />
+          </TouchableOpacity>
 
-          {/* Warning when approaching limit */}
-          {getRemainingTime() <= 10 && (
-            <Text style={styles.warningText}>
-              {getRemainingTime()} seconds left!
-            </Text>
+          {/* Recording Status */}
+          {isRecording && (
+            <View style={styles.recordingStatus}>
+              {/* Progress Bar */}
+              <View style={styles.progressContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${getProgressPercentage()}%` },
+                  ]}
+                />
+              </View>
+
+              {/* Timer Display */}
+              <View style={styles.timerContainer}>
+                <View style={styles.recordingIndicator} />
+                <Text style={styles.timerText}>
+                  {formatDuration(recordingDuration)} remaining
+                </Text>
+              </View>
+
+              {/* Warning when approaching limit */}
+              {getRemainingTime() <= 10 && (
+                <Text style={styles.warningText}>
+                  {getRemainingTime()} seconds left!
+                </Text>
+              )}
+            </View>
           )}
-        </View>
-      )}
 
-      {/* Instructions */}
-      <Text style={styles.instructionText}>
-        {isRecording
-          ? "Tap to stop recording"
-          : `Tap to record (max ${RECORDING_LIMIT_SECONDS}s)`}
-      </Text>
-
-      {isProcessing && (
-        <View style={styles.processingContainer}>
-          <Text style={styles.processingText}>Processing your entry...</Text>
-          <Text style={styles.processingSubtext}>
-            Our AI is reflecting on what's going well for you
+          {/* Instructions */}
+          <Text style={styles.instructionText}>
+            {isRecording
+              ? "Tap to stop recording"
+              : `Tap to record (max ${RECORDING_LIMIT_SECONDS}s)`}
           </Text>
-        </View>
+        </>
       )}
+
+      {/* Processing overlay */}
+      <ProcessingAnimation
+        isProcessing={isProcessing}
+        message="Saving your reflection..."
+        subMessage="Generating insights"
+      />
     </View>
   );
 };
@@ -419,6 +437,8 @@ const getStyles = (isDarkMode: boolean, compact: boolean) =>
       elevation: 4,
       borderWidth: 1,
       borderColor: isDarkMode ? "#3a3a3a" : "#f0f0f0",
+      position: "relative", // Important for absolute positioned children
+      overflow: "hidden", // Clean edges for animations
     },
     recorderHeader: {
       alignItems: "center",

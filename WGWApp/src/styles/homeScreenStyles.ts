@@ -22,8 +22,8 @@ export const getStyles = (isDarkMode: boolean) =>
     // ===== FIXED TOP BLACK SECTION =====
     topBlackSection: {
       backgroundColor: "#000000",
-      paddingTop: 45, // Increased from 45
-      paddingBottom: 20, // Increased from 15
+      paddingTop: 20, // Remove the large padding since SafeAreaView handles it
+      paddingBottom: 20,
       position: 'relative',
       zIndex: 10,
     },
@@ -52,19 +52,20 @@ export const getStyles = (isDarkMode: boolean) =>
     
     scrollContentContainer: {
       flexGrow: 1, // Allow content to grow
-      paddingBottom: 20, // Space at bottom
+      paddingBottom: 10, // Space at bottom
+      paddingTop: 10, // Add this to reduce top spacing
     },
     
     // ===== LOWER SECTION =====
     lowerSection: {
-      paddingTop: 20, // Space from divider to first card
-      paddingBottom: 20, // Space at bottom
+      paddingTop: 20, // Reduce this from 20 to something smaller
+      paddingBottom: -10, // Space at bottom
     },
     
     // ===== WRAPPER STYLES =====
     cardWrapper: {
       paddingHorizontal: 20,
-      marginBottom: 15,
+      marginBottom: 10, // Reduce this if needed
     },
     topSection: {
       marginTop: 60, // Increase from 30 to 60 for more space from TOP of screen

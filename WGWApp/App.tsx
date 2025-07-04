@@ -7,6 +7,7 @@ import { AuthScreen } from "./src/screens/AuthScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { supabase } from "./src/config/supabase"; // Changed import path
 import type { User } from "@supabase/supabase-js";
+import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
@@ -125,7 +126,10 @@ export default function App() {
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
-        <AppContent />
+        <>
+          <ExpoStatusBar style="light" backgroundColor="#000000" />
+          <AppContent />
+        </>
       </PersistGate>
     </Provider>
   );
