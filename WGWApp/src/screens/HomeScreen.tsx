@@ -92,14 +92,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <View style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Encouragement Message at Top */}
-        <View style={styles.topSection}>
+        <View style={styles.cardWrapper}>
           <EncouragementMessage
             todaysEntryCount={todaysEntries?.length || 0}
             isDarkMode={isDarkMode}
           />
         </View>
 
-        {/* Recorder Section - Both use same wrapper */}
+        {/* Recorder Section - Same wrapper */}
         <View style={styles.cardWrapper}>
           <RecorderSection
             selectedCategory={selectedCategory || getTodaysCategory(categories)}

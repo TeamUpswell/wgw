@@ -446,7 +446,7 @@ const getStyles = (isDarkMode: boolean, compact: boolean) =>
       marginBottom: 3,
     },
     categoryContainer: {
-      width: "100%",
+      width: "90%",
       marginBottom: 10, // Reduced from 15
       height: compact ? 70 : 90, // Reduced height in compact mode
       justifyContent: "center",
