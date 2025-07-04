@@ -18,20 +18,24 @@ export const getStyles = (isDarkMode: boolean) =>
       flex: 1,
       backgroundColor: isDarkMode ? "#1a1a1a" : "#f5f5f5",
     },
-    
+
     // ===== FIXED TOP BLACK SECTION =====
     topBlackSection: {
       backgroundColor: "#000000",
-      paddingTop: 45, // Increased from 45
-      paddingBottom: 20, // Increased from 15
-      position: 'relative',
+      paddingTop: 60, // Account for status bar
+      paddingBottom: 20,
+      // Remove maxHeight to let content determine height
+      // maxHeight: 400,
+      position: "relative",
       zIndex: 10,
     },
-    
+
     recorderInBlackSection: {
-      paddingHorizontal: 20, // Add padding only to the recorder content
+      // Add container constraints
+      width: "100%",
+      // Remove the maxHeight constraint since we're using ScrollView
     },
-    
+
     // ===== SECTION DIVIDER =====
     sectionDivider: {
       height: 2, // Thickness of the divider
@@ -43,24 +47,24 @@ export const getStyles = (isDarkMode: boolean) =>
       elevation: 5,
       zIndex: 9, // Below the top section
     },
-    
+
     // ===== SCROLLABLE CONTENT =====
     scrollContent: {
       flex: 1, // Take remaining space
       backgroundColor: isDarkMode ? "#1a1a1a" : "#f5f5f5",
     },
-    
+
     scrollContentContainer: {
       flexGrow: 1, // Allow content to grow
       paddingBottom: 20, // Space at bottom
     },
-    
+
     // ===== LOWER SECTION =====
     lowerSection: {
       paddingTop: 20, // Space from divider to first card
       paddingBottom: 20, // Space at bottom
     },
-    
+
     // ===== WRAPPER STYLES =====
     cardWrapper: {
       paddingHorizontal: 20,

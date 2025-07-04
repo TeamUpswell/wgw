@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
+import { CategorySpinner } from "./CategorySpinner";
 
 const RECORDING_LIMIT_SECONDS = 30;
 
@@ -36,7 +37,7 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
   isDarkMode,
   categories,
   onCategorySelect,
-  compact = false, // Default to false
+  compact = false,
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -245,6 +246,23 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
   }, [selectedCategory, categories]);
   */
 
+  // Get today's recommended category
+  const getTodaysCategory = () => {
+    const unusedCategories = categories.filter((cat) => !hasWeeklyEntry(cat));
+    if (unusedCategories.length > 0) {
+      return unusedCategories[0];
+    }
+    // Fallback to day-based selection
+    const dayIndex = new Date().getDay();
+    return categories[dayIndex % categories.length];
+  };
+
+  const hasWeeklyEntry = (category: string) => {
+    // This should be passed from parent or implemented based on your data
+    // For now, returning false for all
+    return false;
+  };
+
   return (
     <View style={styles.recorderContainer}>
       <View style={styles.recorderHeader}>
@@ -254,59 +272,15 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
         </Text>
       </View>
 
-      {/* Category Slider with Auto-Selection */}
-      <View style={styles.categoryContainer}>
-        {/* Category Selection */}
-        <View
-          style={{
-            height: 60, // Increased from 50
-            overflow: "hidden",
-            marginBottom: 25, // Increased from 20
-          }}
-        >
-          <ScrollView
-            ref={categoryScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{
-              height: 60, // Match container height
-            }}
-            contentContainerStyle={{
-              paddingHorizontal: 10,
-              alignItems: "center",
-              minHeight: 60, // Match new height
-              maxHeight: 60, // Match new height
-            }}
-            scrollEnabled={true}
-            bounces={false}
-            directionalLockEnabled={true} // iOS: Lock to horizontal direction
-            disableIntervalMomentum={true} // Android: Prevent vertical momentum
-          >
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category}
-                style={[
-                  styles.categoryButton,
-                  selectedCategory === category && styles.selectedCategoryButton,
-                ]}
-                onPress={() => handleCategoryPress(category)}
-                activeOpacity={0.9}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    selectedCategory === category && styles.selectedCategoryText,
-                  ]}
-                >
-                  {category}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        <Text style={styles.categoryLabel}>Scroll to choose your focus</Text>
-      </View>
+      {/* Replace category slider with spinner */}
+      <CategorySpinner
+        categories={categories}
+        selectedCategory={selectedCategory}
+        recommendedCategory={getTodaysCategory()}
+        hasWeeklyEntry={hasWeeklyEntry}
+        onCategorySelect={onCategorySelect}
+        isDarkMode={isDarkMode}
+      />
 
       {/* Recording Button */}
       <TouchableOpacity

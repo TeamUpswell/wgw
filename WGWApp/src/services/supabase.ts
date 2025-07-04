@@ -60,7 +60,7 @@ export class SupabaseService {
         audio_url: entry.audioUri,
         transcription: entry.transcription || "",
         ai_response: entry.ai_response || "",
-        created_at: now.toISOString(), // Ensure we're sending ISO string
+        created_at: now.toISOString(), // Use the actual current date
       };
 
       console.log("🔍 Attempting to insert:", dbEntry);
@@ -105,6 +105,7 @@ export class SupabaseService {
       throw new Error(`Failed to fetch entries: ${error.message}`);
     }
 
+    // No need to "fix" dates - they're correct!
     return data.map((entry) => ({
       ...entry,
       audioUri: entry.audio_url,

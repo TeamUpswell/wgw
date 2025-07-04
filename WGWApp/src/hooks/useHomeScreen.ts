@@ -6,8 +6,8 @@ import { supabase } from "../config/supabase";
 import { openai } from "../config/openai";
 import { isToday, parseISO } from "date-fns";
 import { NotificationModal } from "../components/NotificationModal";
-import { AIService } from '../services/ai';
-import { getAIResponse } from '../services/aiService';
+import { AIService } from "../services/ai";
+import { getAIResponse } from "../services/aiService";
 
 export const useHomeScreen = (user: any, isDarkMode: boolean) => {
   // ✅ Local state management (no Redux)
@@ -44,16 +44,56 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
 
   // Computed values with safe array handling
   const todaysEntries = useMemo(() => {
-    return entries.filter((entry) => {
+    if (!entries || entries.length === 0) return [];
+
+    const today = new Date();
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+
+    console.log("📅 Computing todaysEntries:", {
+      entriesCount: entries.length,
+      todayStart: todayStart.toISOString(),
+      todayEnd: todayEnd.toISOString(),
+    });
+
+    const filtered = entries.filter((entry) => {
       if (!entry?.created_at) return false;
       try {
-        const entryDate = parseISO(entry.created_at);
-        return isToday(entryDate);
+        const entryDate = new Date(entry.created_at);
+
+        // Skip invalid or future dates
+        if (isNaN(entryDate.getTime()) || entryDate > todayEnd) {
+          console.warn(
+            "📅 Skipping invalid/future entry:",
+            entry.id,
+            entry.created_at
+          );
+          return false;
+        }
+
+        const isToday = entryDate >= todayStart && entryDate < todayEnd;
+
+        if (isToday) {
+          console.log(
+            "📅 Found today's entry:",
+            entry.id,
+            entryDate.toISOString()
+          );
+        }
+
+        return isToday;
       } catch (error) {
         console.error("Date parsing error:", error);
         return false;
       }
     });
+
+    console.log("📅 Filtered todaysEntries count:", filtered.length);
+    return filtered;
   }, [entries]);
 
   // ✅ Load entries function
@@ -65,7 +105,23 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
 
     try {
       setEntriesLoading(true);
+      console.log("📥 Loading entries for user:", user.id);
+
       const userEntries = await SupabaseService.getUserEntries(user.id);
+      console.log("📥 Loaded entries:", userEntries?.length || 0);
+
+      if (userEntries && userEntries.length > 0) {
+        console.log("📥 First entry:", userEntries[0]);
+        console.log(
+          "📥 Entry dates:",
+          userEntries.slice(0, 3).map((e) => ({
+            id: e.id,
+            created_at: e.created_at,
+            date: new Date(e.created_at).toLocaleDateString(),
+          }))
+        );
+      }
+
       setEntries(userEntries || []);
     } catch (error) {
       console.error("Failed to load entries:", error);
@@ -296,7 +352,8 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
       setIsProcessing(true);
 
       // Transcribe audio
-      const finalTranscription = transcription || (await transcribeAudio(audioUri));
+      const finalTranscription =
+        transcription || (await transcribeAudio(audioUri));
       console.log("📝 Transcription:", finalTranscription);
 
       setProcessingStage("analyzing");
@@ -324,7 +381,7 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
 
       if (newEntry) {
         console.log("✅ Entry created:", newEntry);
-        
+
         // Update streak
         await updateStreak(user.id);
         const updatedStreak = await fetchStreak(user.id);
@@ -332,7 +389,7 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
 
         // Refresh entries immediately
         await refreshEntries();
-        
+
         // Show notification modal
         setShowNotification(true);
 
@@ -457,7 +514,7 @@ Focus on being genuinely encouraging while helping them deepen their gratitude p
   ) => {
     try {
       const { data, error } = await supabase
-        .from('daily_entries')
+        .from("daily_entries")
         .insert([
           {
             user_id: userId,
@@ -473,7 +530,7 @@ Focus on being genuinely encouraging while helping them deepen their gratitude p
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('❌ Error creating entry:', error);
+      console.error("❌ Error creating entry:", error);
       throw error;
     }
   };
@@ -484,7 +541,7 @@ Focus on being genuinely encouraging while helping them deepen their gratitude p
       // This should call your SupabaseService method
       await SupabaseService.updateUserStreak(userId);
     } catch (error) {
-      console.error('❌ Error updating streak:', error);
+      console.error("❌ Error updating streak:", error);
     }
   };
 
@@ -494,7 +551,7 @@ Focus on being genuinely encouraging while helping them deepen their gratitude p
       const streak = await SupabaseService.getUserStreak(userId);
       return streak || { current_streak: 0, longest_streak: 0 };
     } catch (error) {
-      console.error('❌ Error fetching streak:', error);
+      console.error("❌ Error fetching streak:", error);
       return { current_streak: 0, longest_streak: 0 };
     }
   };
@@ -589,6 +646,7 @@ Focus on being genuinely encouraging while helping them deepen their gratitude p
       getTodaysCategory,
       scrollViewRef,
       resetModalStates, // ✅ Add this
+      refreshEntries: loadUserEntries, // Make sure this is included
     }),
     [
       categories,
