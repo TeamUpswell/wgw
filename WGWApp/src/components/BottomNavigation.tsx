@@ -1,25 +1,21 @@
 import React from "react";
-import { View, TouchableOpacity, StyleSheet, Text } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 interface BottomNavigationProps {
-  onRecordPress: () => void;
   onHistoryPress: () => void;
+  onAddAnotherPress: () => void;
   onSettingsPress: () => void;
   isDarkMode: boolean;
-  isRecording?: boolean;
-  showAddAnother?: boolean;
-  onAddImagePress?: () => void;
+  addAnotherActive: boolean; // true = orange/active, false = gray/disabled
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
-  onRecordPress,
   onHistoryPress,
+  onAddAnotherPress,
   onSettingsPress,
   isDarkMode,
-  isRecording = false,
-  showAddAnother,
-  onAddImagePress,
+  addAnotherActive,
 }) => {
   const styles = getStyles(isDarkMode);
 
@@ -38,36 +34,21 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         />
       </TouchableOpacity>
 
-      {/* Record Button or Add Another Button */}
-      {showAddAnother ? (
-        <TouchableOpacity
-          style={styles.addAnotherButton}
-          onPress={onRecordPress}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="refresh-circle" size={54} color="#fff" />
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={[styles.recordButton, isRecording && styles.recordingButton]}
-          onPress={onRecordPress}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name={isRecording ? "stop" : "mic"}
-            size={32}
-            color="#fff"
-          />
-        </TouchableOpacity>
-      )}
-
-      {/* Add Image Button */}
+      {/* Add Another (center) Button */}
       <TouchableOpacity
-        style={styles.navButton}
-        onPress={onAddImagePress}
-        activeOpacity={0.7}
+        style={[
+          styles.addAnotherButton,
+          { backgroundColor: addAnotherActive ? "#FF6B35" : "#ccc" },
+        ]}
+        onPress={addAnotherActive ? onAddAnotherPress : undefined}
+        activeOpacity={addAnotherActive ? 0.8 : 1}
+        disabled={!addAnotherActive}
       >
-        <Ionicons name="image-outline" size={32} color="#FF6B35" />
+        <Ionicons
+          name="refresh-circle"
+          size={54}
+          color="#fff"
+        />
       </TouchableOpacity>
 
       {/* Settings Button */}
@@ -106,27 +87,10 @@ const getStyles = (isDarkMode: boolean) =>
       padding: 12,
       borderRadius: 12,
     },
-    recordButton: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      backgroundColor: "#FF6B35",
-      justifyContent: "center",
-      alignItems: "center",
-      elevation: 5,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 5,
-    },
-    recordingButton: {
-      backgroundColor: "#e74c3c",
-    },
     addAnotherButton: {
       width: 60,
       height: 60,
       borderRadius: 30,
-      backgroundColor: "#FF6B35",
       justifyContent: "center",
       alignItems: "center",
       elevation: 5,

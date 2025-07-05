@@ -405,16 +405,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Bottom Navigation - Also fixed */}
       <BottomNavigation
-        onRecordPress={
-          todaysEntry
-            ? () => setTodaysEntry(null) // Go back to incomplete state
-            : handleRecordPress // Normal recording handler
-        }
         onHistoryPress={() => setShowHistory(true)}
+        onAddAnotherPress={() => setTodaysEntry(null)}
         onSettingsPress={() => setShowSettings(true)}
         isDarkMode={isDarkMode}
-        isRecording={isActiveRecording}
-        showAddAnother={!!todaysEntry}
+        addAnotherActive={!!todaysEntry} // true on completed page, false on record screen
       />
 
       {/* Processing Modal */}

@@ -177,12 +177,14 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
       // WITH:
       const { data: userCategories, error } = await supabase
         .from("user_categories")
-        .select("category")
+        .select("categories") // ✅ Use the correct column name (plural, array)
         .eq("user_id", user.id);
 
       if (error) throw error;
 
-      setCategories(userCategories?.map((c) => c.category) || []);
+      // userCategories is an array of rows, each with a 'categories' array
+      // If you only expect one row per user, use .[0]?.categories
+      setCategories(userCategories?.[0]?.categories || []);
     } catch (error) {
       console.error("Failed to load categories:", error);
       // Use defaults

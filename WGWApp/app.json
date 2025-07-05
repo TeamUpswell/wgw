@@ -32,7 +32,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera.",
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos."
+        }
+      ]
     ],
     "extra": {
       "eas": {

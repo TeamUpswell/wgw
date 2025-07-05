@@ -13,6 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 import { CategorySpinner } from "./CategorySpinner";
+import * as ImagePicker from "expo-image-picker";
+import ImageDescriptionModal from "./ImageDescriptionModal"; // adjust path as needed
 
 // Import supabase client
 import { createClient } from "@supabase/supabase-js";
@@ -52,6 +54,8 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const recording = useRef<Audio.Recording | null>(null);
   const durationInterval = useRef<NodeJS.Timeout | null>(null);
   const recordingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -101,7 +105,7 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
 
       // Haptic feedback
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
+<Ionicons name="image-outline" size={48} color="#fff" />
       // Start duration counter
       durationInterval.current = setInterval(() => {
         setRecordingDuration((prev) => prev + 1);
@@ -295,6 +299,37 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
     return data.path; // or data.Key
   };
 
+  // Pick from library
+  const handlePickFromLibrary = async () => {
+    console.log("Photo picker button pressed"); // <-- Add this line
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Required", "Please allow photo library access.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaType.Image,
+      allowsEditing: false,
+      quality: 1,
+    });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setSelectedImageUri(result.assets[0].uri);
+      setShowImageModal(true);
+    }
+  };
+
+  // Handle modal close
+  const handleCloseModal = () => {
+    setShowImageModal(false);
+    setSelectedImageUri(null);
+  };
+
+  // Handle submit from modal
+  const handleImageSubmit = (data) => {
+    // Save to history, send to AI, etc.
+    handleCloseModal();
+  };
+
   return (
     <View style={styles.recorderContainer}>
       <View style={styles.recorderHeader}>
@@ -328,11 +363,11 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
         {/* Camera Button */}
         <TouchableOpacity
           style={[styles.recordButton, { marginLeft: 20, backgroundColor: "#FF6B35" }]}
-          onPress={onAddImagePress}
+          onPress={handlePickFromLibrary}
           disabled={isProcessing}
           activeOpacity={0.8}
         >
-          <Ionicons name="image-outline" size={48} color="#fff" />
+          <Ionicons name="camera" size={48} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -380,6 +415,15 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
             Our AI is reflecting on what's going well for you
           </Text>
         </View>
+      )}
+
+      {showImageModal && (
+        <ImageDescriptionModal
+          imageUri={selectedImageUri}
+          onClose={handleCloseModal}
+          onSubmit={handleImageSubmit}
+          // ...other props as needed
+        />
       )}
     </View>
   );
