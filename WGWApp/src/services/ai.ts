@@ -383,4 +383,31 @@ Remember: You're helping people train their attention on what's going well, buil
     const quote = wgwQuotes[quoteIndex];
     return `"${quote.text}" - ${quote.author}`;
   }
+
+  static async generateRecap(entries: any[], type: "weekly" | "monthly"): Promise<string> {
+    try {
+      const systemPrompt = `
+You are a positive psychology coach. Summarize the following gratitude entries into a ${type} recap.
+Highlight patterns, themes, and offer gentle, actionable recommendations for continued growth.
+Keep it warm, encouraging, and insightful.
+`;
+
+      const userContent = entries.map(e => `- [${e.category}] ${e.transcription}`).join("\n");
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Entries:\n${userContent}` }
+        ],
+        max_tokens: 400,
+        temperature: 0.7,
+      });
+
+      return completion.choices[0]?.message?.content || "No recap generated.";
+    } catch (error) {
+      console.error("❌ AI recap error:", error);
+      return "Could not generate recap at this time.";
+    }
+  }
 }

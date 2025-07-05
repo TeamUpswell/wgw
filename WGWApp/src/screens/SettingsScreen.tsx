@@ -33,10 +33,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   categories: propCategories,
   onCategoriesUpdate,
 }) => {
-  // Early return if not visible
-  if (!isVisible) {
-    return null;
-  }
+  if (!isVisible) return null;
 
   const [categories, setCategories] = useState<string[]>(propCategories || []);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -51,6 +48,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   useEffect(() => {
     loadUserCategories();
     loadUserStreak();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadUserCategories = async () => {
@@ -58,19 +56,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       console.log("📂 Loading categories for user:", user.id);
       const { data, error } = await supabase
         .from("user_categories")
-        .select("category")
+        .select("categories")
         .eq("user_id", user.id);
 
-      let userCategories = data?.map((c) => c.category) || [];
-
       if (error) throw error;
+
+      let userCategories = data?.[0]?.categories || [];
 
       if (userCategories.length > 0) {
         console.log("✅ Categories loaded:", userCategories);
         setCategories(userCategories);
         onCategoriesUpdate(userCategories);
       } else {
-        console.log("📂 No categories found, using defaults");
+        // No categories found, insert defaults
+        console.log("📂 No categories found, inserting defaults");
         const defaultCategories = [
           "Health & Fitness",
           "Career & Work",
@@ -80,6 +79,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           "Financial Goals",
           "Community & Service",
         ];
+        // Insert into DB
+        await supabase.from("user_categories").upsert({
+          user_id: user.id,
+          categories: defaultCategories,
+        });
         setCategories(defaultCategories);
         onCategoriesUpdate(defaultCategories);
       }
@@ -126,7 +130,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         user_id: user.id,
         categories: newCategories,
       });
-
       if (error) throw error;
     } catch (error) {
       console.error("Error saving categories:", error);
@@ -139,17 +142,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       Alert.alert("Error", "Please enter a category name");
       return;
     }
-
     if (categories.includes(newCategoryName.trim())) {
       Alert.alert("Error", "This category already exists");
       return;
     }
-
     const updatedCategories = [...categories, newCategoryName.trim()];
     setCategories(updatedCategories);
     await saveCategories(updatedCategories);
     setNewCategoryName("");
     setIsAddingCategory(false);
+    onCategoriesUpdate(updatedCategories);
   };
 
   const removeCategory = async (categoryToRemove: string) => {
@@ -167,6 +169,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             );
             setCategories(updatedCategories);
             await saveCategories(updatedCategories);
+            onCategoriesUpdate(updatedCategories);
           },
         },
       ]
@@ -191,6 +194,35 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         },
       },
     ]);
+  };
+
+  const defaultCategories = [
+    "Health & Fitness",
+    "Career & Work",
+    "Family & Friends",
+    "Personal Growth",
+    "Hobbies & Interests",
+    "Financial Goals",
+    "Community & Service",
+  ];
+
+  const resetCategoriesToDefault = async () => {
+    Alert.alert(
+      "Reset Categories",
+      "Are you sure you want to reset your categories to the default list? This will remove any custom categories.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: async () => {
+            setCategories(defaultCategories);
+            await saveCategories(defaultCategories);
+            onCategoriesUpdate(defaultCategories);
+          },
+        },
+      ]
+    );
   };
 
   const styles = getStyles(isDarkMode);
@@ -239,12 +271,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Your Categories</Text>
-            <TouchableOpacity
-              onPress={() => setIsAddingCategory(true)}
-              style={styles.addButton}
-            >
-              <Text style={styles.addButtonText}>+ Add</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TouchableOpacity
+                onPress={() => setIsAddingCategory(true)}
+                style={styles.addButton}
+              >
+                <Text style={styles.addButtonText}>+ Add</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={resetCategoriesToDefault}
+                style={[styles.addButton, { marginLeft: 10, backgroundColor: "#FF9500" }]}
+              >
+                <Text style={styles.addButtonText}>Reset</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {categories.map((category, index) => (
