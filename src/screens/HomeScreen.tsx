@@ -49,6 +49,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   isDarkMode,
   onToggleDarkMode,
 }) => {
+  console.log("[HomeScreen] render");
   const styles = getStyles(isDarkMode);
 
   // Add this state to track today's entry
@@ -287,6 +288,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     await refreshEntries();
   };
 
+  if (showSocialFeed) {
+    return (
+      <SocialFeedScreen
+        user={user} // <-- pass user prop
+        onClose={() => {
+          console.log("[HomeScreen] setShowSocialFeed(false) called");
+          setShowSocialFeed(false);
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Only show the top section and divider if NOT completed */}
@@ -365,7 +378,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         onSettingsPress={() => setShowSettings(true)}
         isDarkMode={isDarkMode}
         addAnotherActive={!!todaysEntry}
-        onSocialFeedPress={() => setShowSocialFeed(true)}
+        onSocialFeedPress={() => {
+          console.log("[HomeScreen] setShowSocialFeed(true) called");
+          setShowSocialFeed(true);
+        }}
       />
 
       {/* Processing Modal */}
@@ -527,11 +543,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onClose={() => setShowCamera(false)}
           />
         </Modal>
-      )}
-
-      {/* Social Feed Screen */}
-      {showSocialFeed && (
-        <SocialFeedScreen onClose={() => setShowSocialFeed(false)} />
       )}
     </View>
   );

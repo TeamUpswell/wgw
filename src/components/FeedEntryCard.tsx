@@ -1,40 +1,72 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Alert,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-export const FeedEntryCard = ({ entry, navigation }) => (
-  <View style={styles.card}>
-    <View style={styles.header}>
-      <View style={styles.userInfo}>
-        {entry.avatar_url ? (
-          <Image source={{ uri: entry.avatar_url }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person-circle-outline" size={32} color="#bbb" />
+export const FeedEntryCard = ({ entry, navigation }) => {
+  // Placeholder handlers
+  const handleLike = () => {
+    Alert.alert("Like", "You liked this entry!");
+    // TODO: Connect to backend
+  };
+  const handleComment = () => {
+    Alert.alert("Comment", "Open comments modal!");
+    // TODO: Open comment modal or navigate
+  };
+  const handleShare = () => {
+    Alert.alert("Share", "Share functionality coming soon!");
+    // TODO: Implement share logic
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <View style={styles.userInfo}>
+          {entry.avatar_url ? (
+            <Image source={{ uri: entry.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person-circle-outline" size={32} color="#bbb" />
+            </View>
+          )}
+          <View>
+            <Text style={styles.username}>
+              {entry.display_name ||
+                entry.username ||
+                entry.email ||
+                "(unknown)"}
+            </Text>
+            {entry.bio ? <Text style={styles.bio}>{entry.bio}</Text> : null}
           </View>
-        )}
-        <View>
-          <Text style={styles.username}>
-            {entry.display_name || entry.username || entry.email || "(unknown)"}
-          </Text>
-          {entry.bio ? <Text style={styles.bio}>{entry.bio}</Text> : null}
         </View>
+        <Text style={styles.time}>
+          {new Date(entry.created_at).toLocaleString()}
+        </Text>
       </View>
-      <Text style={styles.time}>
-        {new Date(entry.created_at).toLocaleString()}
-      </Text>
+      <Text style={styles.category}>{entry.category}</Text>
+      <Text style={styles.transcription}>{entry.transcription}</Text>
+      <View style={styles.reactions}>
+        <TouchableOpacity style={styles.reactionButton} onPress={handleLike}>
+          <Ionicons name="heart-outline" size={20} color="#e57373" />
+          <Text style={styles.reactionCount}>{entry.reactions?.like || 0}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.reactionButton} onPress={handleComment}>
+          <Ionicons name="chatbubble-outline" size={20} color="#4FC3F7" />
+          <Text style={styles.reactionCount}>{entry.comments_count || 0}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.reactionButton} onPress={handleShare}>
+          <Ionicons name="share-social-outline" size={20} color="#888" />
+        </TouchableOpacity>
+      </View>
     </View>
-    <Text style={styles.category}>{entry.category}</Text>
-    <Text style={styles.transcription}>{entry.transcription}</Text>
-    <View style={styles.reactions}>
-      <TouchableOpacity>
-        <Ionicons name="heart-outline" size={20} color="#e57373" />
-        <Text>{entry.reactions?.like || 0}</Text>
-      </TouchableOpacity>
-      {/* Add more reaction types as needed */}
-    </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   card: {
@@ -69,4 +101,10 @@ const styles = StyleSheet.create({
   category: { color: "#8BC34A", fontWeight: "bold", marginTop: 8 },
   transcription: { marginTop: 8, fontSize: 16 },
   reactions: { flexDirection: "row", marginTop: 12, alignItems: "center" },
+  reactionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 18,
+  },
+  reactionCount: { marginLeft: 4, color: "#555", fontSize: 14 },
 });

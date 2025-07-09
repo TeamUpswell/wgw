@@ -19,6 +19,9 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   addAnotherActive,
   onSocialFeedPress, // Add this prop
 }) => {
+  console.log("[BottomNavigation] render", {
+    onSocialFeedPressExists: !!onSocialFeedPress,
+  });
   const styles = getStyles(isDarkMode);
 
   return (
@@ -40,7 +43,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
       {onSocialFeedPress && (
         <TouchableOpacity
           style={styles.navButton}
-          onPress={onSocialFeedPress}
+          onPress={() => {
+            console.log("[BottomNavigation] Social Feed button pressed");
+            onSocialFeedPress();
+          }}
           activeOpacity={0.7}
         >
           <Ionicons
