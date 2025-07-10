@@ -45,6 +45,8 @@ interface RecorderSectionProps {
   onAddImagePress?: () => void; // Add image press handler
   onCameraPress?: () => void; // <-- Add this
   isAddingAdditionalEntry?: boolean; // Add additional entry prop for calmer experience
+  onPrivacyChange?: (isPrivate: boolean) => void; // Add privacy callback
+  initialPrivacy?: boolean; // Add initial privacy state
 }
 
 export const RecorderSection: React.FC<RecorderSectionProps> = ({
@@ -58,12 +60,14 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
   onAddImagePress,
   onCameraPress,
   isAddingAdditionalEntry = false,
+  onPrivacyChange,
+  initialPrivacy = false,
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(initialPrivacy);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const recording = useRef<Audio.Recording | null>(null);
   const durationInterval = useRef<NodeJS.Timeout | null>(null);
@@ -378,7 +382,7 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Image,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
       quality: 1,
     });
@@ -400,7 +404,11 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
     handleCloseModal();
   };
 
-  const handlePrivacyToggle = () => setIsPrivate((prev) => !prev);
+  const handlePrivacyToggle = () => {
+    const newPrivacy = !isPrivate;
+    setIsPrivate(newPrivacy);
+    onPrivacyChange?.(newPrivacy);
+  };
 
   return (
     <View

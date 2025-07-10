@@ -27,6 +27,7 @@ interface SettingsScreenProps {
   categories: string[]; // Add this
   onCategoriesUpdate: (categories: string[]) => void; // Add this
   onProfilePress?: () => void; // <-- Add this prop
+  onJournalPress?: () => void; // <-- Add journal navigation prop
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
@@ -38,6 +39,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   categories: propCategories,
   onCategoriesUpdate,
   onProfilePress, // <-- Add this prop
+  onJournalPress, // <-- Add journal navigation prop
 }) => {
   if (!isVisible) return null;
 
@@ -368,6 +370,30 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               >
                 <Text style={{ color: "#fff", fontWeight: "bold" }}>
                   View/Edit Profile
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            {/* Journal Button */}
+            {onJournalPress && (
+              <TouchableOpacity
+                style={{
+                  marginTop: 10,
+                  backgroundColor: "#FF6B35",
+                  padding: 12,
+                  borderRadius: 8,
+                  alignItems: "center",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                }}
+                onPress={() => {
+                  onClose(); // Close settings first
+                  setTimeout(onJournalPress, 300); // Open journal after closing
+                }}
+              >
+                <Ionicons name="book-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
+                  My WGW Journal
                 </Text>
               </TouchableOpacity>
             )}

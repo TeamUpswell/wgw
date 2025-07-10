@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
   TextInput,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -67,79 +68,88 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
       <View style={styles.container}>
         <View style={styles.modal}>
           <Text style={styles.title}>{title}</Text>
-          {transcription && (
-            <View style={styles.transcriptionContainer}>
-              <Text style={styles.transcriptionLabel}>What you said:</Text>
-              {editing ? (
-                <>
-                  <TextInput
-                    style={[
-                      styles.transcriptionText,
-                      {
-                        backgroundColor: isDarkMode ? "#222" : "#fff",
-                        borderRadius: 6,
-                        padding: 8,
-                        marginBottom: 8,
-                        borderWidth: 1,
-                        borderColor: "#ccc",
-                      },
-                    ]}
-                    value={editedText}
-                    onChangeText={setEditedText}
-                    multiline
-                  />
-                  <View style={{ flexDirection: "row", marginBottom: 8 }}>
-                    <TouchableOpacity
-                      onPress={handleSaveEdit}
-                      style={{ marginRight: 16 }}
-                    >
-                      <Text style={{ color: "#007AFF", fontWeight: "bold" }}>
-                        Save
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleCancelEdit}>
-                      <Text style={{ color: "#aaa" }}>Cancel</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
-                <Text style={styles.transcriptionText}>{transcription}</Text>
-              )}
-              {/* Action Buttons */}
-              <View style={{ flexDirection: "row", marginTop: 12 }}>
-                {onEdit && !editing && (
-                  <TouchableOpacity
-                    onPress={handleEditPress}
-                    style={{ marginRight: 24 }}
-                  >
-                    <Ionicons name="create-outline" size={22} color="#007AFF" />
-                  </TouchableOpacity>
-                )}
-                {onShare && (
-                  <TouchableOpacity onPress={onShare} style={{ marginRight: 24 }}>
-                    <Ionicons name="share-social" size={22} color="#007AFF" />
-                  </TouchableOpacity>
-                )}
-                {onToggleFavorite && (
-                  <TouchableOpacity
-                    onPress={onToggleFavorite}
-                    style={{ marginRight: 0, marginLeft: 0, padding: 4 }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={favorite ? "star" : "star-outline"}
-                      size={28}
-                      color={favorite ? "#FFD700" : "#aaa"}
+          
+          <ScrollView 
+            style={styles.scrollContent}
+            contentContainerStyle={styles.scrollContentContainer}
+            showsVerticalScrollIndicator={true}
+            bounces={true}
+          >
+            {transcription && (
+              <View style={styles.transcriptionContainer}>
+                <Text style={styles.transcriptionLabel}>What you said:</Text>
+                {editing ? (
+                  <>
+                    <TextInput
+                      style={[
+                        styles.transcriptionText,
+                        {
+                          backgroundColor: isDarkMode ? "#222" : "#fff",
+                          borderRadius: 6,
+                          padding: 8,
+                          marginBottom: 8,
+                          borderWidth: 1,
+                          borderColor: "#ccc",
+                        },
+                      ]}
+                      value={editedText}
+                      onChangeText={setEditedText}
+                      multiline
                     />
-                  </TouchableOpacity>
+                    <View style={{ flexDirection: "row", marginBottom: 8 }}>
+                      <TouchableOpacity
+                        onPress={handleSaveEdit}
+                        style={{ marginRight: 16 }}
+                      >
+                        <Text style={{ color: "#007AFF", fontWeight: "bold" }}>
+                          Save
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleCancelEdit}>
+                        <Text style={{ color: "#aaa" }}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <Text style={styles.transcriptionText}>{transcription}</Text>
                 )}
+                {/* Action Buttons */}
+                <View style={{ flexDirection: "row", marginTop: 12 }}>
+                  {onEdit && !editing && (
+                    <TouchableOpacity
+                      onPress={handleEditPress}
+                      style={{ marginRight: 24 }}
+                    >
+                      <Ionicons name="create-outline" size={22} color="#007AFF" />
+                    </TouchableOpacity>
+                  )}
+                  {onShare && (
+                    <TouchableOpacity onPress={onShare} style={{ marginRight: 24 }}>
+                      <Ionicons name="share-social" size={22} color="#007AFF" />
+                    </TouchableOpacity>
+                  )}
+                  {onToggleFavorite && (
+                    <TouchableOpacity
+                      onPress={onToggleFavorite}
+                      style={{ marginRight: 0, marginLeft: 0, padding: 4 }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={favorite ? "star" : "star-outline"}
+                        size={28}
+                        color={favorite ? "#FFD700" : "#aaa"}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* AI Response */}
-          <Text style={styles.message}>{message}</Text>
+            {/* AI Response */}
+            <Text style={styles.message}>{message}</Text>
+          </ScrollView>
 
+          {/* Fixed Continue Button */}
           <TouchableOpacity style={styles.button} onPress={onClose}>
             <Text style={styles.buttonText}>Continue</Text>
           </TouchableOpacity>
@@ -160,21 +170,32 @@ const getStyles = (isDarkMode: boolean) =>
     },
     modal: {
       width: width * 0.9,
+      maxHeight: height * 0.8, // Limit modal height to 80% of screen
       borderRadius: 12,
-      padding: 20,
       backgroundColor: isDarkMode ? "#2c2c2c" : "#fff",
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.3,
       shadowRadius: 4,
       elevation: 5,
-      alignItems: "center",
+      overflow: "hidden", // Prevent content overflow
+    },
+    scrollContent: {
+      flex: 1,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
+    scrollContentContainer: {
+      paddingBottom: 10,
     },
     title: {
       fontSize: 24,
       fontWeight: "bold",
       color: isDarkMode ? "#fff" : "#333",
       marginBottom: 16,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      textAlign: "center",
     },
     transcriptionContainer: {
       marginBottom: 16,
@@ -206,7 +227,8 @@ const getStyles = (isDarkMode: boolean) =>
       paddingVertical: 12,
       borderRadius: 8,
       alignItems: "center",
-      width: "100%",
+      marginHorizontal: 20,
+      marginVertical: 20,
     },
     buttonText: {
       color: "#fff",

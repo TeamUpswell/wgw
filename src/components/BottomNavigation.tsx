@@ -5,18 +5,20 @@ import { Ionicons } from "@expo/vector-icons";
 interface BottomNavigationProps {
   onHomePress: () => void;
   onAddAnotherPress: () => void;
+  onJournalPress: () => void;
   onGroupsPress: () => void;
-  onYouPress: () => void;
+  onInspirePress: () => void;
   isDarkMode: boolean;
   addAnotherActive: boolean; // true = orange/active, false = gray/disabled
-  currentTab?: 'home' | 'groups' | 'you';
+  currentTab?: 'home' | 'journal' | 'groups' | 'inspire';
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onHomePress,
   onAddAnotherPress,
+  onJournalPress,
   onGroupsPress,
-  onYouPress,
+  onInspirePress,
   isDarkMode,
   addAnotherActive,
   currentTab,
@@ -42,6 +44,22 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           name={currentTab === 'home' ? "home" : "home-outline"}
           size={28}
           color={currentTab === 'home' ? "#FF6B35" : (isDarkMode ? "#fff" : "#333")}
+        />
+      </TouchableOpacity>
+
+      {/* Journal Button */}
+      <TouchableOpacity
+        style={[
+          styles.navButton,
+          currentTab === 'journal' && styles.activeNavButton
+        ]}
+        onPress={onJournalPress}
+        activeOpacity={0.7}
+      >
+        <Ionicons
+          name={currentTab === 'journal' ? "book" : "book-outline"}
+          size={28}
+          color={currentTab === 'journal' ? "#FF6B35" : (isDarkMode ? "#fff" : "#333")}
         />
       </TouchableOpacity>
 
@@ -74,19 +92,19 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         />
       </TouchableOpacity>
 
-      {/* You Button */}
+      {/* Inspire Button */}
       <TouchableOpacity
         style={[
           styles.navButton,
-          currentTab === 'you' && styles.activeNavButton
+          currentTab === 'inspire' && styles.activeNavButton
         ]}
-        onPress={onYouPress}
+        onPress={onInspirePress}
         activeOpacity={0.7}
       >
         <Ionicons
-          name={currentTab === 'you' ? "person" : "person-outline"}
+          name={currentTab === 'inspire' ? "sparkles" : "sparkles-outline"}
           size={28}
-          color={currentTab === 'you' ? "#FF6B35" : (isDarkMode ? "#fff" : "#333")}
+          color={currentTab === 'inspire' ? "#FF6B35" : (isDarkMode ? "#fff" : "#333")}
         />
       </TouchableOpacity>
     </View>

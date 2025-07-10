@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { TwilioService } from './twilioService';
 
 export interface Invite {
   id: string;
@@ -200,7 +201,7 @@ export class InviteService {
     return `${baseUrl}?invite=${inviteCode}`;
   }
 
-  // Send email invites (placeholder - implement with your email service)
+  // Send email invites using Twilio SendGrid
   static async sendEmailInvites(
     emails: string[],
     inviter: any,
@@ -209,28 +210,27 @@ export class InviteService {
   ): Promise<void> {
     console.log('📧 Sending email invites...');
     
-    for (let i = 0; i < emails.length; i++) {
-      const email = emails[i];
-      const inviteCode = inviteCodes[i];
-      const inviteLink = this.generateInviteLink(inviteCode);
-      
-      // TODO: Implement actual email sending
-      // This would integrate with your email service (SendGrid, Resend, etc.)
-      
-      const emailData = {
-        to: email,
-        subject: `${inviter.display_name || inviter.username} invited you to join What's Going Well!`,
-        html: this.generateEmailTemplate(personalMessage, inviteLink, inviter),
-      };
-      
-      console.log(`📧 Would send email to ${email}:`, emailData);
-      
-      // Example with a hypothetical email service:
-      // await emailService.send(emailData);
+    try {
+      const emailMessages = emails.map((email, i) => {
+        const inviteCode = inviteCodes[i];
+        const inviteLink = this.generateInviteLink(inviteCode);
+        
+        return {
+          to: email,
+          subject: `${inviter.display_name || inviter.username} invited you to join What's Going Well!`,
+          html: this.generateEmailTemplate(personalMessage, inviteLink, inviter),
+        };
+      });
+
+      await TwilioService.sendBulkEmails(emailMessages);
+      console.log(`📧 Successfully sent ${emails.length} email invites`);
+    } catch (error) {
+      console.error('Failed to send email invites:', error);
+      throw error;
     }
   }
 
-  // Send SMS invites (placeholder - implement with SMS service like Twilio)
+  // Send SMS invites using Twilio
   static async sendSMSInvites(
     phones: string[],
     inviter: any,
@@ -239,20 +239,24 @@ export class InviteService {
   ): Promise<void> {
     console.log('📱 Sending SMS invites...');
     
-    for (let i = 0; i < phones.length; i++) {
-      const phone = phones[i];
-      const inviteCode = inviteCodes[i];
-      const inviteLink = this.generateInviteLink(inviteCode);
-      
-      const smsMessage = `${personalMessage}\n\nDownload: ${inviteLink}`;
-      
-      console.log(`📱 Would send SMS to ${phone}:`, smsMessage);
-      
-      // TODO: Implement actual SMS sending with Twilio or similar
-      // await smsService.send({
-      //   to: phone,
-      //   body: smsMessage
-      // });
+    try {
+      const smsMessages = phones.map((phone, i) => {
+        const inviteCode = inviteCodes[i];
+        const inviteLink = this.generateInviteLink(inviteCode);
+        
+        const smsMessage = `${personalMessage}\n\nDownload What's Going Well: ${inviteLink}`;
+        
+        return {
+          to: phone,
+          body: smsMessage,
+        };
+      });
+
+      await TwilioService.sendBulkSMS(smsMessages);
+      console.log(`📱 Successfully sent ${phones.length} SMS invites`);
+    } catch (error) {
+      console.error('Failed to send SMS invites:', error);
+      throw error;
     }
   }
 

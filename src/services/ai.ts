@@ -1,13 +1,25 @@
+import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from "openai";
 import * as FileSystem from "expo-file-system";
 
-// Get API key from environment
-const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+// Get API keys from environment - support both naming conventions
+const ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY; // Keep for transcription only
 
-if (!OPENAI_API_KEY) {
-  console.warn("⚠️ OpenAI API key not found in environment variables");
+if (!ANTHROPIC_API_KEY) {
+  console.warn("⚠️ Anthropic API key not found in environment variables");
+  console.warn("⚠️ Checked both CLAUDE_API_KEY and EXPO_PUBLIC_ANTHROPIC_API_KEY");
 }
 
+if (!OPENAI_API_KEY) {
+  console.warn("⚠️ OpenAI API key not found in environment variables (needed for transcription)");
+}
+
+const anthropic = new Anthropic({
+  apiKey: ANTHROPIC_API_KEY,
+});
+
+// Keep OpenAI for transcription only (Whisper)
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
@@ -192,6 +204,108 @@ export class AIService {
     }
   }
 
+  static debugAPIKeyStatus(): void {
+    console.log("🔍 Debug API Key Status:");
+    console.log("- CLAUDE_API_KEY exists:", !!process.env.CLAUDE_API_KEY);
+    console.log("- EXPO_PUBLIC_ANTHROPIC_API_KEY exists:", !!process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY);
+    console.log("- CLAUDE_API_KEY length:", process.env.CLAUDE_API_KEY?.length || 0);
+    console.log("- EXPO_PUBLIC_ANTHROPIC_API_KEY length:", process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY?.length || 0);
+    console.log("- Final ANTHROPIC_API_KEY used:", !!ANTHROPIC_API_KEY);
+    console.log("- Final key length:", ANTHROPIC_API_KEY?.length || 0);
+    console.log("- Key starts with sk-ant:", ANTHROPIC_API_KEY?.startsWith('sk-ant') || false);
+    console.log("- Key prefix (first 20 chars):", ANTHROPIC_API_KEY?.substring(0, 20) || 'none');
+    console.log("- Key suffix (last 8 chars):", ANTHROPIC_API_KEY?.substring(ANTHROPIC_API_KEY.length - 8) || 'none');
+  }
+
+  static async testClaudeAPI(): Promise<string> {
+    try {
+      console.log("🧪 Testing Claude API connection...");
+      this.debugAPIKeyStatus();
+      
+      if (!ANTHROPIC_API_KEY) {
+        return "No API key configured";
+      }
+
+      if (!ANTHROPIC_API_KEY.startsWith('sk-ant')) {
+        return "Invalid API key format - should start with sk-ant";
+      }
+
+      const testResponse = await anthropic.messages.create({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 20,
+        messages: [
+          {
+            role: "user",
+            content: "Say 'Claude API ready' if you can read this.",
+          },
+        ],
+      });
+
+      const result = testResponse.content[0]?.type === 'text' 
+        ? testResponse.content[0].text 
+        : "No response";
+      console.log("✅ Claude API test result:", result);
+      return result;
+    } catch (error) {
+      console.error("❌ Claude API test failed:", error);
+      console.error("❌ Error details:", {
+        message: (error as any)?.message,
+        status: (error as any)?.status,
+        type: (error as any)?.type,
+        code: (error as any)?.code,
+        headers: (error as any)?.response?.headers
+      });
+      
+      // Analyze the specific error
+      const errorMessage = (error as any)?.message || '';
+      const errorStatus = (error as any)?.status;
+      
+      if (errorMessage.includes('credit balance') || errorMessage.includes('billing')) {
+        console.log("💳 CREDIT ISSUE DETECTED:");
+        console.log("- This suggests your API key is working but has billing restrictions");
+        console.log("- Check if this API key belongs to the same account with $79.37");
+        console.log("- You might need to contact Anthropic support");
+        return "Credit/billing error - API key may be on different account";
+      }
+      
+      if (errorStatus === 401) {
+        console.log("🔑 AUTHENTICATION ISSUE:");
+        console.log("- API key might be invalid or expired");
+        console.log("- Check if you regenerated the key recently");
+        return "Authentication failed - check API key validity";
+      }
+      
+      if (errorStatus === 429) {
+        console.log("⏰ RATE LIMIT ISSUE:");
+        console.log("- Too many requests - this is separate from credit balance");
+        console.log("- Wait a few minutes and try again");
+        return "Rate limited - wait and retry";
+      }
+      
+      return `Claude API test failed: ${errorMessage}`;
+    }
+  }
+  
+  static async verifyAccountStatus(): Promise<void> {
+    console.log("🔍 ACCOUNT VERIFICATION:");
+    console.log("1. Your API key ends with:", ANTHROPIC_API_KEY?.slice(-8) || 'unknown');
+    console.log("2. Key length:", ANTHROPIC_API_KEY?.length || 0, "(should be ~108 chars)");
+    console.log("3. Testing with minimal request...");
+    
+    try {
+      const result = await this.testClaudeAPI();
+      console.log("4. Test result:", result);
+    } catch (error) {
+      console.log("4. Test failed:", (error as any)?.message);
+    }
+    
+    console.log("\n💡 TROUBLESHOOTING TIPS:");
+    console.log("- Compare your API key ending with what's shown in Anthropic console");
+    console.log("- Check if your $79.37 balance is in the same account as this API key");
+    console.log("- Look for any usage restrictions or organization settings");
+    console.log("- Contact Anthropic support if key is correct but credits aren't accessible");
+  }
+
   static async generateResponse(
     transcription: string,
     category: string,
@@ -202,35 +316,65 @@ export class AIService {
   ): Promise<string> {
     try {
       console.log(
-        "🤖 Generating Greg Bell-inspired response for:",
+        "🤖 Generating Claude-powered Greg Bell-inspired response for:",
         transcription.slice(0, 50) + "..."
       );
 
+      // Debug API key status
+      this.debugAPIKeyStatus();
+
+      // Check API key availability
+      if (!ANTHROPIC_API_KEY) {
+        console.warn("⚠️ No Anthropic API key available, using fallback response");
+        return this.generateGregBellMockResponse(transcription, category);
+      }
+
+      if (!ANTHROPIC_API_KEY.startsWith('sk-ant')) {
+        console.warn("⚠️ Invalid API key format, using fallback response");
+        return this.generateGregBellMockResponse(transcription, category);
+      }
+
+      console.log("🔑 API key found and valid, proceeding with Claude request");
+      
       const systemPrompt = this.buildGregBellSystemPrompt(category, context);
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const message = await anthropic.messages.create({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 200,
+        temperature: 0.7,
+        system: systemPrompt,
         messages: [
-          { role: "system", content: systemPrompt },
           {
             role: "user",
             content: `Here's what I'm grateful for: "${transcription}"`,
           },
         ],
-        max_tokens: 150,
-        temperature: 0.7,
       });
 
-      const response =
-        completion.choices[0]?.message?.content ||
-        "Thank you for sharing your gratitude.";
+      const response = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : "Thank you for sharing your gratitude.";
+      
       console.log(
-        "✅ Greg Bell-inspired response generated:",
+        "✅ Claude-powered Greg Bell-inspired response generated:",
         response.slice(0, 50) + "..."
       );
       return response;
     } catch (error) {
-      console.error("❌ AI response error:", error);
+      console.error("❌ Claude AI response error:", error);
+      console.error("❌ Error details:", {
+        message: (error as any)?.message,
+        status: (error as any)?.status,
+        type: (error as any)?.type
+      });
+      
+      // Check if it's an authentication error
+      if ((error as any)?.message?.includes('authentication') || 
+          (error as any)?.message?.includes('credit balance') ||
+          (error as any)?.status === 401) {
+        console.error("🔑 Authentication or credit issue with Claude API");
+      }
+      
       return this.generateGregBellMockResponse(transcription, category);
     }
   }
@@ -387,26 +531,40 @@ Remember: You're helping people train their attention on what's going well, buil
   static async generateRecap(entries: any[], type: "weekly" | "monthly"): Promise<string> {
     try {
       const systemPrompt = `
-You are a positive psychology coach. Summarize the following gratitude entries into a ${type} recap.
-Highlight patterns, themes, and offer gentle, actionable recommendations for continued growth.
-Keep it warm, encouraging, and insightful.
+You are a compassionate positive psychology coach inspired by Greg Bell's "What's Going Well" methodology. 
+
+Create a ${type} recap that:
+- Celebrates the user's gratitude practice with warmth and encouragement
+- Identifies meaningful patterns and themes across their entries
+- Highlights growth, resilience, and positive momentum
+- Offers gentle, actionable insights for continued flourishing
+- Uses an uplifting, supportive tone that inspires continued practice
+
+Focus on what's working well and build on their strengths. Help them see the beautiful tapestry of gratitude they're weaving.
 `;
 
       const userContent = entries.map(e => `- [${e.category}] ${e.transcription}`).join("\n");
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Entries:\n${userContent}` }
-        ],
-        max_tokens: 400,
+      const message = await anthropic.messages.create({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 500,
         temperature: 0.7,
+        system: systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: `Here are my gratitude entries for this ${type} recap:\n\n${userContent}`,
+          },
+        ],
       });
 
-      return completion.choices[0]?.message?.content || "No recap generated.";
+      const response = message.content[0]?.type === 'text' 
+        ? message.content[0].text 
+        : "No recap generated.";
+      
+      return response;
     } catch (error) {
-      console.error("❌ AI recap error:", error);
+      console.error("❌ Claude AI recap error:", error);
       return "Could not generate recap at this time.";
     }
   }

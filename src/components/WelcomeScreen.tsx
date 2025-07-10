@@ -28,6 +28,8 @@ interface WelcomeScreenProps {
   totalEntries?: number; // Total entries user has made
   currentStreak?: number; // Current streak
   isAddingAdditionalEntry?: boolean; // True if adding an additional entry after daily completion
+  onPrivacyChange?: (isPrivate: boolean) => void; // Add privacy callback
+  initialPrivacy?: boolean; // Add initial privacy state
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
@@ -44,6 +46,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   totalEntries = 0,
   currentStreak = 0,
   isAddingAdditionalEntry = false,
+  onPrivacyChange,
+  initialPrivacy = false,
 }) => {
   const [showTips, setShowTips] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -242,6 +246,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             onAddImagePress={onAddImagePress}
             onCameraPress={onCameraPress}
             isAddingAdditionalEntry={isAddingAdditionalEntry}
+            onPrivacyChange={onPrivacyChange}
+            initialPrivacy={initialPrivacy}
           />
         </View>
       </Animated.View>

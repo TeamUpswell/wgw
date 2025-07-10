@@ -3,6 +3,7 @@ import { ScrollView, Alert } from "react-native";
 import * as Haptics from "expo-haptics";
 import { supabase } from "../config/supabase";
 import { openai } from "../config/openai";
+import { anthropic } from "../config/anthropic";
 import { NotificationModal } from "../components/NotificationModal";
 import { AIService } from "../services/ai";
 import { getAIResponse } from "../services/aiService";
@@ -51,14 +52,29 @@ export const analyzeEntryWithImageAndText = async (
   category: string
 ): Promise<string> => {
   try {
+    if (!process.env.EXPO_PUBLIC_OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not found. Please check your .env file.');
+    }
+    
+    // Check if Anthropic is available for superior wellness coaching
+    const hasAnthropicKey = !!(process.env.CLAUDE_API_KEY || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY);
     let prompt = `You are a supportive wellness coach helping someone with their daily gratitude practice. They just shared what's going well in their "${category}" area of life.`;
+    
     if (text) {
-      prompt += `\n\nTheir reflection: "${text}"`;
+      prompt += `\n\nTheir written reflection: "${text}"`;
     }
+    
     if (imageUrl) {
-      prompt += `\n\nThey also shared this image.`;
+      prompt += `\n\nThey also shared a photo to capture this moment visually. Please analyze both their written words and the image content.`;
     }
-    prompt += `\n\nPlease provide:\n1. A warm, encouraging response acknowledging what they shared\n2. A specific insight or observation about their reflection and/or image\n3. A gentle suggestion for how they might build on this positive momentum\n4. Keep it conversational, supportive, and under 150 words`;
+    
+    if (imageUrl && text) {
+      prompt += `\n\nPlease provide:\n1. A warm acknowledgment of both their written reflection AND what you observe in their photo\n2. Connect the image content to their written words - how do they complement each other?\n3. A specific insight about what this moment reveals about their wellbeing journey\n4. An encouraging suggestion for building on this positive experience\n5. Keep it conversational, insightful, and under 180 words\n\nFocus heavily on their written reflection while using the image to add depth and context to your response.`;
+    } else if (imageUrl) {
+      prompt += `\n\nPlease provide:\n1. A warm, encouraging response about what you see in their photo\n2. Specific observations about the positive elements, emotions, or experiences captured\n3. Connect what you see to their wellbeing and gratitude practice\n4. A gentle suggestion for how they might build on this positive moment\n5. Keep it conversational, supportive, and under 150 words`;
+    } else {
+      prompt += `\n\nPlease provide:\n1. A warm, encouraging response acknowledging what they shared\n2. A specific insight or observation about their reflection\n3. A gentle suggestion for how they might build on this positive momentum\n4. Keep it conversational, supportive, and under 150 words`;
+    }
 
     let messages;
     if (imageUrl) {
@@ -94,19 +110,177 @@ export const analyzeEntryWithImageAndText = async (
       ];
     }
 
-    const response = await openai.chat.completions.create({
-      model: imageUrl ? "gpt-4o" : "gpt-4",
-      messages,
-      max_tokens: 200,
-      temperature: 0.7,
-    });
-    const aiResponse = response.choices[0]?.message?.content;
+    let aiResponse;
+    
+    if (imageUrl) {
+      console.log('🖼️ Processing image analysis...');
+      console.log('Image URL:', imageUrl?.substring(0, 100) + '...');
+      console.log('Text length:', text?.length || 0);
+      console.log('Category:', category);
+      
+      // Validate image URL
+      if (!imageUrl || !imageUrl.startsWith('http')) {
+        console.error('❌ Invalid image URL:', imageUrl);
+        throw new Error('Invalid image URL provided');
+      }
+      
+      // Two-step approach: GPT-4o for image analysis → Claude for wellness coaching
+      
+      // Step 1: Use GPT-4o to analyze the image
+      const imageAnalysisPrompt = `Analyze this image in the context of someone's "${category}" gratitude practice. Describe:
+1. What you see in the image (objects, people, setting, mood)
+2. The emotions or feelings the image conveys
+3. How this relates to wellbeing, gratitude, or positive experiences
+4. Any meaningful details that show what's going well for this person
+Keep it factual and observational, focusing on positive elements. This will be used by a wellness coach to provide feedback.`;
+
+      const imageAnalysisMessages = [
+        {
+          role: "system" as const,
+          content: "You are an expert at analyzing images for emotional and wellbeing content. Provide detailed, positive observations.",
+        },
+        {
+          role: "user" as const,
+          content: [
+            { type: "text" as const, text: imageAnalysisPrompt },
+            { type: "image_url" as const, image_url: { url: imageUrl } },
+          ],
+        },
+      ];
+
+      console.log('🤖 Calling GPT-4o for image analysis...');
+      const imageAnalysisResponse = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: imageAnalysisMessages,
+        max_tokens: 200,
+        temperature: 0.3, // Lower temperature for more consistent analysis
+      });
+      console.log('✅ GPT-4o analysis complete');
+
+      const imageAnalysis = imageAnalysisResponse.choices[0]?.message?.content;
+      
+      if (!imageAnalysis) {
+        console.error('❌ No image analysis received from GPT-4o');
+        throw new Error('Failed to analyze image content');
+      }
+      
+      console.log('🖼️ Image analysis:', imageAnalysis.substring(0, 200) + '...');
+      
+      // Step 2: Use Claude for wellness coaching response (if available)
+      if (hasAnthropicKey) {
+        console.log('🤖 Calling Claude for wellness coaching...');
+        // Clean and validate inputs for Claude
+        const cleanText = (text || '').trim().replace(/["\\]/g, '');
+        const cleanImageAnalysis = (imageAnalysis || '').trim().replace(/["\\]/g, '');
+        const cleanCategory = (category || 'Personal Growth').trim();
+        
+        // Combine text and image analysis for Greg Bell-style coaching
+        const combinedReflection = `${cleanText} [Image context: ${cleanImageAnalysis}]`;
+        
+        console.log('🎯 Using Greg Bell methodology for combined text+image coaching...');
+        
+        // Use AIService for Greg Bell-inspired response
+        aiResponse = await AIService.generateResponse(combinedReflection, cleanCategory, {
+          currentStreak: 0 // Could pass actual streak here if available
+        });
+        
+        if (!aiResponse) {
+          console.error('❌ No response content from Claude');
+          throw new Error('Claude returned empty response');
+        }
+      } else {
+        // Fallback: Use OpenAI for coaching response too
+        const coachingPrompt = `You are a supportive wellness coach helping someone with their daily gratitude practice in their "${category}" area of life.
+
+Their written reflection: "${text}"
+
+Image analysis: "${imageAnalysis}"
+
+Based on both their written words and what's shown in the image, provide a warm, encouraging wellness coaching response. Focus on:
+1. Acknowledging both their reflection and the visual moment
+2. Connecting their words to what's shown in the image
+3. Insights about their growth or positive mindset
+4. An encouraging suggestion for building on this experience
+5. Keep it conversational, warm, and under 180 words
+
+Be a supportive wellness coach who sees the deeper meaning in both their words and visual capture.`;
+
+        const coachingResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a supportive wellness coach specializing in gratitude and positive psychology. Your responses are warm, insightful, and encouraging."
+            },
+            {
+              role: "user", 
+              content: coachingPrompt
+            }
+          ],
+          max_tokens: 250,
+          temperature: 0.7,
+        });
+        
+        aiResponse = coachingResponse.choices[0]?.message?.content;
+      }
+      
+    } else {
+      // Text-only analysis - use Greg Bell trained service
+      if (hasAnthropicKey) {
+        console.log('🎯 Using Greg Bell methodology for text-only coaching...');
+        
+        // Use AIService for Greg Bell-inspired response
+        aiResponse = await AIService.generateResponse(text, category, {
+          currentStreak: 0 // Could pass actual streak here if available
+        });
+      } else {
+        // Use OpenAI for text-only analysis
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a supportive wellness coach specializing in gratitude and positive psychology. Your responses are warm, insightful, and encouraging."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          max_tokens: 250,
+          temperature: 0.7,
+        });
+        
+        aiResponse = response.choices[0]?.message?.content;
+      }
+    }
+    
     if (!aiResponse) {
       throw new Error("No response generated");
     }
     return aiResponse;
   } catch (error) {
     console.error("❌ AI feedback error:", error);
+    console.error("❌ Error type:", typeof error);
+    console.error("❌ Error message:", (error as any)?.message);
+    console.error("❌ Error status:", (error as any)?.status);
+    console.error("❌ Error response:", (error as any)?.response?.data);
+    
+    // Check if it's an authentication error
+    if ((error as any)?.message?.includes('authentication') || (error as any)?.message?.includes('API key') || (error as any)?.message?.includes('auth')) {
+      console.error('🔑 Authentication error detected. Please check your API keys.');
+      throw new Error('Authentication failed. Please check your API configuration.');
+    }
+    
+    // Check if it's a 400 error (bad request)
+    if ((error as any)?.status === 400 || (error as any)?.message?.includes('400')) {
+      console.error('❌ 400 Bad Request error. This usually means invalid parameters.');
+      console.error('🔍 Request details:');
+      console.error('- Text length:', text?.length || 0);
+      console.error('- Image URL provided:', !!imageUrl);
+      console.error('- Category:', category);
+    }
+    
     return `Thank you for sharing what's going well in ${category}! Your reflection shows real awareness and gratitude. Keep building on these positive moments - they're the foundation of a fulfilling life. What you've shared today is worth celebrating! 🌟`;
   }
 };
@@ -496,48 +670,18 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
     category: string
   ): Promise<string> => {
     try {
-      console.log("🤖 Generating personalized feedback...");
+      console.log("🤖 Generating Greg Bell-inspired feedback...");
 
-      const prompt = `You are a supportive wellness coach helping someone with their daily gratitude practice. They just shared what's going well in their "${category}" area of life.
-
-Their reflection: "${transcription}"
-
-Please provide:
-1. A warm, encouraging response acknowledging what they shared
-2. A specific insight or observation about their reflection
-3. A gentle suggestion for how they might build on this positive momentum
-4. Keep it conversational, supportive, and under 150 words
-
-Focus on being genuinely encouraging while helping them deepen their gratitude practice.`;
-
-      const response = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a supportive wellness coach specializing in gratitude and positive psychology. Your responses are warm, insightful, and encouraging.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 200,
-        temperature: 0.7,
+      // Use your trained AIService with Greg Bell methodology
+      const response = await AIService.generateResponse(transcription, category, {
+        currentStreak: streak?.current_streak || 0
       });
 
-      const aiResponse = response.choices[0]?.message?.content;
-
-      if (!aiResponse) {
-        throw new Error("No response generated");
-      }
-
-      return aiResponse;
+      return response;
     } catch (error) {
       console.error("❌ AI feedback error:", error);
 
-      // Fallback response
+      // Fallback response using Greg Bell style
       return `Thank you for sharing what's going well in ${category}! Your reflection shows real awareness and gratitude. Keep building on these positive moments - they're the foundation of a fulfilling life. What you've shared today is worth celebrating! 🌟`;
     }
   };

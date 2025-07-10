@@ -24,7 +24,6 @@ import { WelcomeScreen } from "../components/WelcomeScreen";
 import { WeeklyProgress } from "../components/WeeklyProgress";
 import { EncouragementMessage } from "../components/EncouragementMessage";
 import { CelebrationView } from "../components/CelebrationView";
-import { HistoryScreen } from "./HistoryScreen";
 import { NotificationModal } from "../components/NotificationModal";
 import { StreakDisplay } from "../components/StreakDisplay";
 import { SimpleProcessingOverlay } from "../components/SimpleProcessingOverlay";
@@ -38,10 +37,13 @@ import { SocialFeedScreen } from "./SocialFeedScreen";
 import { ProfileScreen } from "./ProfileScreen";
 import { EnhancedProfileScreen } from "./EnhancedProfileScreen";
 import { GroupsScreen } from "./GroupsScreen";
+import { EnhancedJournalScreen } from "./EnhancedJournalScreen";
+import { InspirationScreen } from "./InspirationScreen";
 
 // Hooks and utilities
 import { getStyles } from "../styles/homeScreenStyles";
 import { resizeImage, DEFAULT_IMAGE_OPTIONS } from "../utils/imageUtils";
+import { analyzeEntryWithImageAndText } from "../hooks/useHomeScreen";
 
 interface HomeScreenProps {
   user: any;
@@ -67,8 +69,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false); // <-- Add this state
   const [showGroups, setShowGroups] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'home' | 'groups' | 'you'>('home');
+  const [showJournal, setShowJournal] = useState(false); // <-- Add journal state
+  const [showInspiration, setShowInspiration] = useState(false); // <-- Add inspiration state
+  const [currentTab, setCurrentTab] = useState<'home' | 'journal' | 'groups' | 'inspire'>('home');
   const [isFirstTime, setIsFirstTime] = useState(false);
+  const [privacyState, setPrivacyState] = useState(false); // Track privacy setting from RecorderSection
   const [userStats, setUserStats] = useState({ totalEntries: 0, currentStreak: 0 });
   const socialFeedRef = useRef<any>(null); // Add ref for social feed
   const [showSocialFeed, setShowSocialFeed] = useState(false); // Optional: control feed modal
@@ -84,8 +89,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     setShowSettings,
     showCelebration,
     setShowCelebration,
-    showHistory,
-    setShowHistory,
     showDrawer,
     setShowDrawer,
     entries,
@@ -318,9 +321,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     description: string;
     imageUri: string;
     audioUri?: string;
+    isPrivate?: boolean;
   }) => {
     try {
-      console.log("📷 Processing image submission:", data);
+      console.log("📷 Processing image submission:", {
+        description: data.description.slice(0, 50) + '...',
+        imageUri: data.imageUri,
+        hasAudio: !!data.audioUri,
+        isPrivate: data.isPrivate
+      });
       let imageUrl = data.imageUri;
       if (data.imageUri.startsWith("file://")) {
         console.log('🖼️ Processing image for upload...');
@@ -393,11 +402,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         }
       }
       
+      console.log('🤖 Generating AI analysis for image and text...');
+      
+      // Generate AI response analyzing both the image and text
+      const aiResponse = await analyzeEntryWithImageAndText(
+        finalDescription,
+        imageUrl,
+        selectedCategory || "Personal Growth"
+      );
+      
+      console.log('✅ AI analysis complete:', aiResponse.substring(0, 100) + '...');
+      
       console.log('💾 Creating database entry with:', {
         user_id: user.id,
         transcription: finalDescription,
         category: selectedCategory || "Personal Growth",
         image_url: imageUrl,
+        ai_response: aiResponse,
       });
       
       const { data: newEntry, error } = await supabase
@@ -407,9 +428,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           transcription: finalDescription,
           category: selectedCategory || "Personal Growth",
           image_url: imageUrl,
-          ai_response: `Great photo! Thanks for sharing what's meaningful to you in ${
-            selectedCategory || "your life"
-          }.`,
+          ai_response: aiResponse,
+          is_private: data.isPrivate || false,
           created_at: new Date().toISOString(),
         })
         .select()
@@ -424,11 +444,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       if (showSocialFeed && socialFeedRef.current?.refresh) {
         socialFeedRef.current.refresh();
       }
+      console.log('📢 Setting notification data:', {
+        transcription: finalDescription.slice(0, 50) + '...',
+        aiResponse: aiResponse.slice(0, 100) + '...',
+        category: selectedCategory || "Personal Growth",
+      });
+      
       setNotificationData({
         transcription: finalDescription,
-        aiResponse: `Great photo! Thanks for sharing what's meaningful to you in ${
-          selectedCategory || "your life"
-        }.`,
+        aiResponse: aiResponse,
         category: selectedCategory || "Personal Growth",
       });
       setShowNotification(true);
@@ -439,10 +463,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           Haptics.NotificationFeedbackType.Success
         );
       }
-      Alert.alert("Success!", "Your photo and description have been shared!");
+      // Don't show alert since we have the notification modal
+      // Alert.alert("Success!", "Your photo and description have been shared!");
     } catch (error) {
       console.error("Image submission error:", error);
-      Alert.alert("Error", "Something went wrong. Please try again.");
+      Alert.alert("Error", "Something went wrong with processing your image. Please try again.");
+      // Re-throw the error so the modal can handle it
+      throw error;
     }
   };
 
@@ -490,6 +517,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             isAddingAdditionalEntry={isAddingAdditionalEntry}
             totalEntries={userStats.totalEntries}
             currentStreak={userStats.currentStreak}
+            onPrivacyChange={setPrivacyState}
+            initialPrivacy={privacyState}
           />
         ) : (
           /* Social Feed when entry is complete */
@@ -518,13 +547,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           setTodaysEntry(null);
           setIsAddingAdditionalEntry(true);
         }}
+        onJournalPress={() => {
+          setCurrentTab('journal');
+          setShowJournal(true);
+        }}
         onGroupsPress={() => {
           setCurrentTab('groups');
           setShowGroups(true);
         }}
-        onYouPress={() => {
-          setCurrentTab('you');
-          setShowHistory(true);
+        onInspirePress={() => {
+          setCurrentTab('inspire');
+          setShowInspiration(true);
         }}
         isDarkMode={isDarkMode}
         addAnotherActive={!!todaysEntry}
@@ -550,6 +583,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           onToggleDarkMode={onToggleDarkMode}
           user={user}
           onProfilePress={() => setShowProfile(true)}
+          onJournalPress={() => setShowJournal(true)}
         />
       )}
 
@@ -558,14 +592,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <Modal visible={showProfile} animationType="slide">
           <EnhancedProfileScreen 
             user={user} 
-            onClose={() => setShowProfile(false)}
+            onClose={() => {
+              setShowProfile(false);
+              setCurrentTab('home');
+            }}
             isDarkMode={isDarkMode}
             isOwnProfile={true}
             onNavigateToHistory={(entryId?: string) => {
               setShowProfile(false);
-              // Small delay to ensure modal closes before opening history
+              setCurrentTab('journal');
+              // Small delay to ensure modal closes before opening journal
               setTimeout(() => {
-                setShowHistory(true);
+                setShowJournal(true);
               }, 300);
             }}
           />
@@ -586,16 +624,44 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </Modal>
       )}
 
-      {/* History Screen */}
-      {showHistory && (
-        <HistoryScreen
-          user={user}
-          onBack={() => {
-            console.log("📜 Closing History Screen");
-            setShowHistory(false);
-          }}
-          isDarkMode={isDarkMode}
-        />
+      {/* Enhanced Journal Screen Modal */}
+      {showJournal && (
+        <Modal visible={showJournal} animationType="slide">
+          <EnhancedJournalScreen 
+            user={user} 
+            isDarkMode={isDarkMode}
+            onBack={() => {
+              setShowJournal(false);
+              setCurrentTab('home');
+            }}
+            onCreateEntry={() => {
+              setShowJournal(false);
+              setCurrentTab('home');
+              setTodaysEntry(null);
+              setIsAddingAdditionalEntry(true);
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* Inspiration Screen Modal */}
+      {showInspiration && (
+        <Modal visible={showInspiration} animationType="slide">
+          <InspirationScreen 
+            user={user} 
+            isDarkMode={isDarkMode}
+            onBack={() => {
+              setShowInspiration(false);
+              setCurrentTab('home');
+            }}
+            onCreateEntry={() => {
+              setShowInspiration(false);
+              setCurrentTab('home');
+              setTodaysEntry(null);
+              setIsAddingAdditionalEntry(true);
+            }}
+          />
+        </Modal>
       )}
 
       {/* Celebration View */}
@@ -708,6 +774,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             setSelectedImage(null);
           }}
           onSubmit={handleImageSubmit}
+          isDarkMode={isDarkMode}
+          initialPrivacy={privacyState}
         />
       )}
     </View>
