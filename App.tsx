@@ -7,7 +7,6 @@ import { AuthScreen } from "./src/screens/AuthScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { supabase } from "./src/config/supabase";
 import type { User } from "@supabase/supabase-js";
-import { ProfileBlocker } from "./src/components/ProfileBlocker";
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
@@ -126,13 +125,11 @@ function AppContent() {
     >
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       {user ? (
-        <ProfileBlocker user={user}>
-          <HomeScreen
-            user={user}
-            isDarkMode={isDarkMode}
-            onToggleDarkMode={setIsDarkMode}
-          />
-        </ProfileBlocker>
+        <HomeScreen
+          user={user}
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={setIsDarkMode}
+        />
       ) : (
         <AuthScreen />
       )}
