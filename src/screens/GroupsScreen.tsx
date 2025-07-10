@@ -15,6 +15,7 @@ import { supabase } from '../config/supabase';
 import { TopNavigationBar } from '../components/TopNavigationBar';
 import { GroupSettingsScreen } from './GroupSettingsScreen';
 import { EnhancedProfileScreen } from './EnhancedProfileScreen';
+import { InviteModal } from '../components/InviteModal';
 
 interface GroupsScreenProps {
   user: any;
@@ -53,6 +54,7 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
   const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   const styles = getStyles(isDarkMode);
 
@@ -245,11 +247,14 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
       {/* Quick Invite Section */}
       <View style={styles.inviteSection}>
         <Text style={styles.sectionTitle}>Invite Friends</Text>
-        <TouchableOpacity style={styles.inviteCard}>
+        <TouchableOpacity 
+          style={styles.inviteCard}
+          onPress={() => setShowInviteModal(true)}
+        >
           <View style={styles.inviteContent}>
             <Ionicons name="mail" size={24} color="#FF6B35" />
             <View style={styles.inviteText}>
-              <Text style={styles.inviteTitle}>Invite by Email</Text>
+              <Text style={styles.inviteTitle}>Invite by Email & SMS</Text>
               <Text style={styles.inviteSubtitle}>Send invitations to friends</Text>
             </View>
           </View>
@@ -411,6 +416,14 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
           />
         </Modal>
       )}
+
+      {/* Invite Modal */}
+      <InviteModal
+        visible={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        isDarkMode={isDarkMode}
+        user={user}
+      />
     </SafeAreaView>
   );
 };
