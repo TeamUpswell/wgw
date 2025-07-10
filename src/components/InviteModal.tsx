@@ -19,6 +19,12 @@ interface InviteModalProps {
   onClose: () => void;
   isDarkMode: boolean;
   user: any;
+  group?: {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+  } | null;
 }
 
 
@@ -27,6 +33,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
   onClose,
   isDarkMode,
   user,
+  group = null,
 }) => {
   const [inviteType, setInviteType] = useState<'email' | 'sms'>('email');
   const [emailList, setEmailList] = useState('');
@@ -34,7 +41,13 @@ export const InviteModal: React.FC<InviteModalProps> = ({
   const [personalMessage, setPersonalMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const defaultMessage = `Hey! I've been using this amazing app called "What's Going Well" to practice daily gratitude and track positive moments. It's really helping me stay focused on the good things in life, even during tough times. 
+  const defaultMessage = group 
+    ? `Hey! I'd love to have you join my "${group.name}" group on "What's Going Well" - it's an amazing app for practicing daily gratitude and tracking positive moments together.
+
+We can share our positive experiences and support each other on this wellness journey. The app has inspiring AI coaching and helps build consistent gratitude habits.
+
+Want to join our group and start this positive journey with us?`
+    : `Hey! I've been using this amazing app called "What's Going Well" to practice daily gratitude and track positive moments. It's really helping me stay focused on the good things in life, even during tough times. 
 
 The app has inspiring AI coaching and helps build consistent gratitude habits. I think you'd love it too! 
 
@@ -127,7 +140,9 @@ Want to join me on this positive journey?`;
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={isDarkMode ? "#fff" : "#333"} />
           </TouchableOpacity>
-          <Text style={styles.title}>Invite Friends</Text>
+          <Text style={styles.title}>
+            {group ? `Invite to ${group.name}` : 'Invite Friends'}
+          </Text>
           <View style={styles.placeholder} />
         </View>
 

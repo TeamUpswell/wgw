@@ -48,13 +48,14 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [myGroups, setMyGroups] = useState<Group[]>([]);
   const [following, setFollowing] = useState<User[]>([]);
-  const [activeTab, setActiveTab] = useState<'discover' | 'groups' | 'following'>('discover');
+  const [activeTab, setActiveTab] = useState<'discover' | 'groups' | 'following'>('groups');
   const [isSearching, setIsSearching] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [selectedGroupForInvite, setSelectedGroupForInvite] = useState<Group | null>(null);
 
   const styles = getStyles(isDarkMode);
 
@@ -174,6 +175,11 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
     setShowUserProfile(true);
   };
 
+  const handleGroupInvite = (group: Group) => {
+    setSelectedGroupForInvite(group);
+    setShowInviteModal(true);
+  };
+
   const renderDiscoverTab = () => (
     <View style={styles.tabContent}>
       {/* Search Section */}
@@ -284,7 +290,18 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
             </Text>
           </View>
           <View style={styles.groupActions}>
-            <Ionicons name="settings-outline" size={16} color={isDarkMode ? "#666" : "#999"} />
+            <TouchableOpacity
+              style={styles.inviteButton}
+              onPress={() => handleGroupInvite(group)}
+            >
+              <Ionicons name="person-add" size={16} color="#FF6B35" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => handleGroupPress(group)}
+            >
+              <Ionicons name="settings-outline" size={16} color={isDarkMode ? "#666" : "#999"} />
+            </TouchableOpacity>
             <Ionicons name="chevron-forward" size={20} color={isDarkMode ? "#666" : "#999"} />
           </View>
         </TouchableOpacity>
@@ -355,8 +372,8 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
       {/* Tab Navigation */}
       <View style={styles.tabBar}>
         {[
-          { key: 'discover', title: 'Discover', icon: 'search' },
           { key: 'groups', title: 'Groups', icon: 'people' },
+          { key: 'discover', title: 'Discover', icon: 'search' },
           { key: 'following', title: 'Following', icon: 'heart' },
         ].map((tab) => (
           <TouchableOpacity
@@ -420,9 +437,13 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
       {/* Invite Modal */}
       <InviteModal
         visible={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
+        onClose={() => {
+          setShowInviteModal(false);
+          setSelectedGroupForInvite(null);
+        }}
         isDarkMode={isDarkMode}
         user={user}
+        group={selectedGroupForInvite}
       />
     </SafeAreaView>
   );
@@ -621,6 +642,15 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  inviteButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f9fa',
+  },
+  settingsButton: {
+    padding: 8,
+    borderRadius: 6,
   },
   groupName: {
     fontSize: 16,
