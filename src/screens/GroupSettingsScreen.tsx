@@ -46,7 +46,6 @@ export const GroupSettingsScreen: React.FC<GroupSettingsScreenProps> = ({
     shareAllCategories: true,
     sharedCategories: [],
     sharePrivateEntries: false,
-    shareAIResponses: false,
     shareImages: true,
   });
 
@@ -282,25 +281,6 @@ export const GroupSettingsScreen: React.FC<GroupSettingsScreenProps> = ({
             </View>
           </View>
 
-          <View style={styles.settingCard}>
-            <View style={styles.settingHeader}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingName}>Share AI Reflections</Text>
-                <Text style={styles.settingDescription}>
-                  Include AI-generated insights with your entries
-                </Text>
-              </View>
-              <Switch
-                value={settings.shareAIResponses}
-                onValueChange={(value) => setSettings(prev => ({ ...prev, shareAIResponses: value }))}
-                trackColor={{ 
-                  false: isDarkMode ? '#3a3a3a' : '#e0e0e0', 
-                  true: group.color + '40' 
-                }}
-                thumbColor={settings.shareAIResponses ? group.color : (isDarkMode ? '#666' : '#999')}
-              />
-            </View>
-          </View>
         </View>
 
         {/* Category-Specific Settings */}

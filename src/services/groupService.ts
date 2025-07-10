@@ -5,7 +5,6 @@ export interface GroupSharingSettings {
   shareAllCategories: boolean;
   sharedCategories: string[];
   sharePrivateEntries: boolean;
-  shareAIResponses: boolean;
   shareImages: boolean;
 }
 
