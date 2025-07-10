@@ -499,7 +499,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Bottom Navigation */}
       <BottomNavigation
-        onHomePress={() => setCurrentTab('home')}
+        onHomePress={() => {
+          setCurrentTab('home');
+          // If user is on add post screen (no todaysEntry), check if they have any entry today
+          if (!todaysEntry && todaysEntries && todaysEntries.length > 0) {
+            // If they have entries but todaysEntry is null due to adding additional, 
+            // restore the most recent entry to show social feed
+            const sorted = [...todaysEntries].sort(
+              (a, b) =>
+                new Date(b.created_at || b.createdAt).getTime() -
+                new Date(a.created_at || a.createdAt).getTime()
+            );
+            setTodaysEntry(sorted[0]);
+          }
+          setIsAddingAdditionalEntry(false);
+        }}
         onAddAnotherPress={() => {
           setTodaysEntry(null);
           setIsAddingAdditionalEntry(true);

@@ -254,56 +254,60 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         </View>
       )}
 
-      {/* Tips Section */}
-      <View style={styles.tipsSection}>
-        <TouchableOpacity
-          style={styles.tipsHeader}
-          onPress={() => setShowTips(!showTips)}
-        >
-          <View style={styles.tipsHeaderContent}>
-            <Ionicons name="bulb" size={24} color="#FF6B35" />
-            <Text style={styles.tipsTitle}>Pro Tips</Text>
-          </View>
-          <Ionicons 
-            name={showTips ? "chevron-up" : "chevron-down"} 
-            size={20} 
-            color={isDarkMode ? "#888" : "#666"} 
-          />
-        </TouchableOpacity>
+      {/* Tips Section - only show for regular entries, not additional entries */}
+      {!isAddingAdditionalEntry && (
+        <View style={styles.tipsSection}>
+          <TouchableOpacity
+            style={styles.tipsHeader}
+            onPress={() => setShowTips(!showTips)}
+          >
+            <View style={styles.tipsHeaderContent}>
+              <Ionicons name="bulb" size={24} color="#FF6B35" />
+              <Text style={styles.tipsTitle}>Pro Tips</Text>
+            </View>
+            <Ionicons 
+              name={showTips ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color={isDarkMode ? "#888" : "#666"} 
+            />
+          </TouchableOpacity>
 
-        {showTips && (
-          <Animated.View style={styles.tipsContent}>
-            {tips.map((tip, index) => (
-              <View key={index} style={styles.tipItem}>
-                <View style={styles.tipBullet}>
-                  <Text style={styles.tipBulletText}>{index + 1}</Text>
+          {showTips && (
+            <Animated.View style={styles.tipsContent}>
+              {tips.map((tip, index) => (
+                <View key={index} style={styles.tipItem}>
+                  <View style={styles.tipBullet}>
+                    <Text style={styles.tipBulletText}>{index + 1}</Text>
+                  </View>
+                  <Text style={styles.tipText}>{tip}</Text>
                 </View>
-                <Text style={styles.tipText}>{tip}</Text>
-              </View>
-            ))}
-          </Animated.View>
-        )}
-      </View>
-
-      {/* Encouragement Footer */}
-      <Animated.View
-        style={[
-          styles.encouragementSection,
-          {
-            opacity: fadeAnim,
-          },
-        ]}
-      >
-        <Text style={styles.encouragementText}>
-          {isFirstTime 
-            ? "Remember, there's no wrong way to reflect. Just be honest and kind to yourself." 
-            : "Every entry is a step forward. You're building something beautiful."
-          }
-        </Text>
-        <View style={styles.encouragementIcon}>
-          <Ionicons name="heart" size={20} color="#FF6B35" />
+              ))}
+            </Animated.View>
+          )}
         </View>
-      </Animated.View>
+      )}
+
+      {/* Encouragement Footer - only show for regular entries, not additional entries */}
+      {!isAddingAdditionalEntry && (
+        <Animated.View
+          style={[
+            styles.encouragementSection,
+            {
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <Text style={styles.encouragementText}>
+            {isFirstTime 
+              ? "Remember, there's no wrong way to reflect. Just be honest and kind to yourself." 
+              : "Every entry is a step forward. You're building something beautiful."
+            }
+          </Text>
+          <View style={styles.encouragementIcon}>
+            <Ionicons name="heart" size={20} color="#FF6B35" />
+          </View>
+        </Animated.View>
+      )}
 
       {/* Bottom Spacing */}
       <View style={styles.bottomSpacing} />

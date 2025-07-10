@@ -55,7 +55,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         activeOpacity={addAnotherActive ? 0.8 : 1}
         disabled={!addAnotherActive}
       >
-        <Ionicons name="add-circle" size={54} color="#fff" />
+        <Ionicons name="add" size={24} color="#fff" />
       </TouchableOpacity>
 
       {/* Groups Button */}
@@ -117,15 +117,15 @@ const getStyles = (isDarkMode: boolean) =>
       backgroundColor: isDarkMode ? "rgba(255, 107, 53, 0.1)" : "rgba(255, 107, 53, 0.1)",
     },
     addAnotherButton: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       justifyContent: "center",
       alignItems: "center",
-      elevation: 5,
+      elevation: 3,
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 5,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
     },
   });

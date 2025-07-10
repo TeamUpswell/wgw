@@ -10,10 +10,14 @@ import {
   Animated,
   Dimensions,
   Alert,
+  TextInput,
+  Modal,
+  Image,
 } from "react-native";
 import { FeedEntryCard } from "../components/FeedEntryCard";
 import { supabase } from "../config/supabase";
 import { getFollowing } from "../services/followService";
+import { Ionicons } from "@expo/vector-icons";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -21,6 +25,13 @@ interface SocialFeedScreenProps {
   user: any;
   onClose?: () => void;
   onNewEntry?: () => void; // Callback to trigger refresh from parent
+}
+
+interface UserProfileModalProps {
+  visible: boolean;
+  user: any;
+  currentUserId: string;
+  onClose: () => void;
 }
 
 export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
@@ -35,6 +46,17 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [newEntryCount, setNewEntryCount] = useState(0);
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState<'all' | '7d' | '30d' | '90d'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  
+  // User profile modal state
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [showUserProfile, setShowUserProfile] = useState(false);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -244,6 +266,87 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
     setRefreshing(false);
   };
 
+  // Filter entries based on search, date, and category
+  const getFilteredEntries = () => {
+    let filtered = [...entries];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(entry =>
+        entry.transcription?.toLowerCase().includes(query) ||
+        entry.category?.toLowerCase().includes(query) ||
+        entry.display_name?.toLowerCase().includes(query) ||
+        entry.username?.toLowerCase().includes(query)
+      );
+    }
+
+    // Date filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const days = dateFilter === '7d' ? 7 : dateFilter === '30d' ? 30 : 90;
+      const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      
+      filtered = filtered.filter(entry => new Date(entry.created_at) >= cutoff);
+    }
+
+    // Category filter
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(entry => 
+        (entry.category || 'Uncategorized') === categoryFilter
+      );
+    }
+
+    return filtered;
+  };
+
+  // Get unique categories from all entries
+  const getAvailableCategories = () => {
+    const categories = new Set<string>();
+    entries.forEach(entry => {
+      categories.add(entry.category || 'Uncategorized');
+    });
+    return Array.from(categories).sort();
+  };
+
+  // Handle avatar click to show user profile
+  const handleAvatarPress = async (entry: any) => {
+    if (entry.user_id === user.id) {
+      // Don't show modal for current user's own entries
+      return;
+    }
+
+    try {
+      // Fetch user's entries
+      const { data: userEntries, error } = await supabase
+        .from("daily_entries")
+        .select("*, user:users(id, username, display_name, avatar_url, bio)")
+        .eq("user_id", entry.user_id)
+        .eq("is_private", false) // Only show public entries
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error("Error fetching user entries:", error);
+        return;
+      }
+
+      const userWithEntries = {
+        id: entry.user_id,
+        username: entry.username,
+        display_name: entry.display_name,
+        avatar_url: entry.avatar_url,
+        bio: entry.bio,
+        entries: userEntries || []
+      };
+
+      setSelectedUser(userWithEntries);
+      setShowUserProfile(true);
+    } catch (error) {
+      console.error("Error loading user profile:", error);
+    }
+  };
+
   const handlePrivacyToggle = async (entryId: string, isPrivate: boolean) => {
     try {
       const { error } = await supabase
@@ -357,16 +460,115 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
       >
         <View style={styles.headerRow}>
           <Text style={styles.header}>Your Social Feed</Text>
-          {onClose && (
+          <View style={styles.headerActions}>
             <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeTouchable}
-              accessibilityLabel="Close Social Feed"
+              onPress={() => setShowFilters(!showFilters)}
+              style={styles.filterToggle}
             >
-              <Text style={styles.closeButton}>✕</Text>
+              <Ionicons 
+                name={showFilters ? "options" : "options-outline"} 
+                size={24} 
+                color="#FF6B35" 
+              />
             </TouchableOpacity>
-          )}
+            {onClose && (
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeTouchable}
+                accessibilityLabel="Close Social Feed"
+              >
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
+
+        {/* Filters Section */}
+        {showFilters && (
+          <View style={styles.filtersContainer}>
+            {/* Search */}
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search entries, users, categories..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#999"
+              />
+              <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+            </View>
+
+            {/* Filter Buttons */}
+            <View style={styles.filterButtonsRow}>
+              {/* Date Filter */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterLabel}>Time</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {[
+                    { key: 'all', label: 'All Time' },
+                    { key: '7d', label: 'Last 7 Days' },
+                    { key: '30d', label: 'Last 30 Days' },
+                    { key: '90d', label: 'Last 90 Days' }
+                  ].map(option => (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[
+                        styles.filterButton,
+                        dateFilter === option.key && styles.activeFilterButton
+                      ]}
+                      onPress={() => setDateFilter(option.key as any)}
+                    >
+                      <Text style={[
+                        styles.filterButtonText,
+                        dateFilter === option.key && styles.activeFilterButtonText
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Category Filter */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterLabel}>Category</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterButton,
+                      categoryFilter === 'all' && styles.activeFilterButton
+                    ]}
+                    onPress={() => setCategoryFilter('all')}
+                  >
+                    <Text style={[
+                      styles.filterButtonText,
+                      categoryFilter === 'all' && styles.activeFilterButtonText
+                    ]}>
+                      All Categories
+                    </Text>
+                  </TouchableOpacity>
+                  {getAvailableCategories().map(category => (
+                    <TouchableOpacity
+                      key={category}
+                      style={[
+                        styles.filterButton,
+                        categoryFilter === category && styles.activeFilterButton
+                      ]}
+                      onPress={() => setCategoryFilter(category)}
+                    >
+                      <Text style={[
+                        styles.filterButtonText,
+                        categoryFilter === category && styles.activeFilterButtonText
+                      ]}>
+                        {category}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* New Entry Indicator */}
         {newEntryCount > 0 && (
@@ -424,7 +626,7 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
                 </Text>
               </Animated.View>
             ) : (
-              entries.map((entry, index) => (
+              getFilteredEntries().map((entry, index) => (
                 <Animated.View
                   key={entry.id}
                   style={{
@@ -445,6 +647,7 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
                     currentUserId={user.id}
                     onPrivacyToggle={handlePrivacyToggle}
                     onDelete={handleDelete}
+                    onAvatarPress={() => handleAvatarPress(entry)}
                     style={{
                       marginHorizontal: 16,
                       marginVertical: 8,
@@ -464,6 +667,82 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
               ))
             )}
           </ScrollView>
+        )}
+
+        {/* User Profile Modal */}
+        {showUserProfile && selectedUser && (
+          <Modal
+            visible={showUserProfile}
+            animationType="slide"
+            presentationStyle="pageSheet"
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity 
+                  onPress={() => setShowUserProfile(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>
+                  {selectedUser.display_name || selectedUser.username}'s Entries
+                </Text>
+                <View style={styles.modalHeaderSpacer} />
+              </View>
+
+              <View style={styles.modalUserInfo}>
+                {selectedUser.avatar_url ? (
+                  <Image 
+                    source={{ uri: selectedUser.avatar_url }} 
+                    style={styles.modalAvatar} 
+                  />
+                ) : (
+                  <View style={styles.modalAvatarPlaceholder}>
+                    <Ionicons name="person" size={32} color="#999" />
+                  </View>
+                )}
+                <View style={styles.modalUserDetails}>
+                  <Text style={styles.modalUsername}>
+                    {selectedUser.display_name || selectedUser.username}
+                  </Text>
+                  {selectedUser.bio && (
+                    <Text style={styles.modalUserBio}>{selectedUser.bio}</Text>
+                  )}
+                  <Text style={styles.modalEntryCount}>
+                    {selectedUser.entries.length} public entries
+                  </Text>
+                </View>
+              </View>
+
+              <ScrollView style={styles.modalEntriesList}>
+                {selectedUser.entries.length === 0 ? (
+                  <Text style={styles.modalEmptyText}>No public entries yet</Text>
+                ) : (
+                  selectedUser.entries.map((entry: any) => (
+                    <View key={entry.id} style={styles.modalEntryCard}>
+                      <View style={styles.modalEntryHeader}>
+                        <Text style={styles.modalEntryCategory}>
+                          {entry.category || 'General'}
+                        </Text>
+                        <Text style={styles.modalEntryDate}>
+                          {new Date(entry.created_at).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      {entry.image_url && (
+                        <Image 
+                          source={{ uri: entry.image_url }} 
+                          style={styles.modalEntryImage} 
+                        />
+                      )}
+                      <Text style={styles.modalEntryText}>
+                        {entry.transcription}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            </View>
+          </Modal>
         )}
       </Animated.View>
     );
@@ -559,5 +838,195 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingHorizontal: 32,
     lineHeight: 24,
+  },
+  
+  // Filter styles
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  filterToggle: {
+    padding: 8,
+    marginRight: 12,
+  },
+  filtersContainer: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f8f8",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+    paddingVertical: 8,
+  },
+  searchIcon: {
+    marginLeft: 8,
+  },
+  filterButtonsRow: {
+    gap: 16,
+  },
+  filterGroup: {
+    marginBottom: 8,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  filterButton: {
+    backgroundColor: "#f0f0f0",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  activeFilterButton: {
+    backgroundColor: "#FF6B35",
+    borderColor: "#FF6B35",
+  },
+  filterButtonText: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  activeFilterButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  modalCloseButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    flex: 1,
+    textAlign: "center",
+  },
+  modalHeaderSpacer: {
+    width: 40,
+  },
+  modalUserInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  modalAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 16,
+  },
+  modalAvatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  modalUserDetails: {
+    flex: 1,
+  },
+  modalUsername: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  modalUserBio: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 4,
+  },
+  modalEntryCount: {
+    fontSize: 12,
+    color: "#999",
+  },
+  modalEntriesList: {
+    flex: 1,
+    padding: 16,
+  },
+  modalEmptyText: {
+    textAlign: "center",
+    color: "#999",
+    fontSize: 16,
+    marginTop: 40,
+  },
+  modalEntryCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalEntryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  modalEntryCategory: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FF6B35",
+    backgroundColor: "#fff5f0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  modalEntryDate: {
+    fontSize: 12,
+    color: "#999",
+  },
+  modalEntryImage: {
+    width: "100%",
+    height: 150,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  modalEntryText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#333",
   },
 });

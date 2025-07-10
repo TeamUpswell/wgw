@@ -21,6 +21,7 @@ interface FeedEntryCardProps {
   currentUserId?: string;
   onPrivacyToggle?: (entryId: string, isPrivate: boolean) => void;
   onDelete?: (entryId: string) => void;
+  onAvatarPress?: () => void;
 }
 
 export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({ 
@@ -30,7 +31,8 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
   index = 0,
   currentUserId,
   onPrivacyToggle,
-  onDelete
+  onDelete,
+  onAvatarPress
 }) => {
   // Debug logging
   console.log('FeedEntryCard entry:', {
@@ -177,13 +179,19 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
       {/* Header with user info */}
       <View style={styles.header}>
         <View style={styles.userInfo}>
-          {entry.avatar_url ? (
-            <Image source={{ uri: entry.avatar_url }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person-circle-outline" size={32} color="#bbb" />
-            </View>
-          )}
+          <TouchableOpacity 
+            onPress={onAvatarPress}
+            disabled={!onAvatarPress}
+            activeOpacity={0.7}
+          >
+            {entry.avatar_url ? (
+              <Image source={{ uri: entry.avatar_url }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person-circle-outline" size={32} color="#bbb" />
+              </View>
+            )}
+          </TouchableOpacity>
           <View style={styles.userDetails}>
             <Text style={styles.username}>
               {entry.display_name ||
@@ -198,35 +206,51 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
         </View>
         
         {/* Header actions - right justified */}
-        {currentUserId === entry.user_id && (
-          <View style={styles.headerActions}>
-            {/* Privacy toggle - only for user's own entries */}
-            {onPrivacyToggle && (
-              <TouchableOpacity 
-                style={styles.privacyToggleButton}
-                onPress={handlePrivacyToggle}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons 
-                  name={entry.is_private ? "lock-closed" : "globe-outline"} 
-                  size={16} 
-                  color={entry.is_private ? "#e74c3c" : "#27ae60"} 
-                />
-              </TouchableOpacity>
-            )}
-            
-            {/* Delete button - only for user's own entries */}
-            {onDelete && (
-              <TouchableOpacity 
-                style={styles.deleteButton}
-                onPress={handleDelete}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="trash-outline" size={16} color="#999" />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+        <View style={styles.headerActions}>
+          {/* Favorite button - always visible if entry has favorite property */}
+          {entry.favorite !== undefined && (
+            <TouchableOpacity 
+              style={styles.favoriteButton}
+              onPress={() => {
+                // TODO: Implement favorite toggle
+                console.log('Favorite toggle pressed for entry:', entry.id);
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons 
+                name={entry.favorite ? "star" : "star-outline"} 
+                size={18} 
+                color={entry.favorite ? "#FFD700" : "#999"} 
+              />
+            </TouchableOpacity>
+          )}
+          
+          {/* Privacy toggle - only for user's own entries */}
+          {currentUserId === entry.user_id && onPrivacyToggle && (
+            <TouchableOpacity 
+              style={styles.privacyToggleButton}
+              onPress={handlePrivacyToggle}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons 
+                name={entry.is_private ? "lock-closed" : "globe-outline"} 
+                size={16} 
+                color={entry.is_private ? "#e74c3c" : "#27ae60"} 
+              />
+            </TouchableOpacity>
+          )}
+          
+          {/* Delete button - only for user's own entries */}
+          {currentUserId === entry.user_id && onDelete && (
+            <TouchableOpacity 
+              style={styles.deleteButton}
+              onPress={handleDelete}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="trash-outline" size={16} color="#999" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Entry content */}
@@ -354,22 +378,6 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
           <Ionicons name="share-outline" size={24} color="#666" />
           <Text style={styles.actionText}>Share</Text>
         </TouchableOpacity>
-
-
-        {/* Favorite indicator - moved to avoid conflict with header private indicator */}
-        {entry.favorite && !entry.is_private && (
-          <Animated.View
-            style={[
-              styles.favoriteIndicator,
-              {
-                opacity: fadeAnim,
-                transform: [{ scale: likeAnim }],
-              },
-            ]}
-          >
-            <Ionicons name="star" size={20} color="#FFD700" />
-          </Animated.View>
-        )}
       </Animated.View>
     </Animated.View>
   );
@@ -445,6 +453,12 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 12,
     backgroundColor: '#f8f8f8',
+  },
+  favoriteButton: {
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: '#f8f8f8',
+    marginRight: 8,
   },
   content: {
     paddingHorizontal: 16,
