@@ -415,7 +415,7 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
         ]}
       >
         <View style={styles.headerRow}>
-          <Text style={styles.header}>Your Social Feed</Text>
+          <Text style={styles.header}>What's Going Well</Text>
           {onClose && (
             <TouchableOpacity
               onPress={onClose}
@@ -459,7 +459,7 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
         ]}
       >
         <View style={styles.headerRow}>
-          <Text style={styles.header}>Your Social Feed</Text>
+          <Text style={styles.header}>What's Going Well</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity
               onPress={() => setShowFilters(!showFilters)}
