@@ -19,6 +19,14 @@ try {
   LinearGradient = require("expo-linear-gradient").LinearGradient;
 } catch (error) {
   console.warn("LinearGradient not available, using fallback");
+  // Create a simple fallback component that mimics LinearGradient
+  LinearGradient = ({ children, style, colors, ...props }: any) => {
+    const fallbackStyle = {
+      backgroundColor: colors && colors[0] ? colors[0] : '#FF6B35',
+      ...style,
+    };
+    return React.createElement(View, { style: fallbackStyle, ...props }, children);
+  };
 }
 import { supabase } from "../config/supabase";
 
@@ -153,21 +161,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       
-      {LinearGradient ? (
-        <LinearGradient
-          colors={isDarkMode 
-            ? ['#1a1a1a', '#2a2a2a', '#1a1a1a'] 
-            : ['#FF6B35', '#FF8A65', '#FFAB91']
-          }
-          style={styles.gradient}
-        >
-          {renderContent()}
-        </LinearGradient>
-      ) : (
-        <View style={[styles.gradient, styles.fallbackBackground]}>
-          {renderContent()}
-        </View>
-      )}
+      <LinearGradient
+        colors={isDarkMode 
+          ? ['#1a1a1a', '#2a2a2a', '#1a1a1a'] 
+          : ['#FF6B35', '#FF8A65', '#FFAB91']
+        }
+        style={styles.gradient}
+      >
+        {renderContent()}
+      </LinearGradient>
     </SafeAreaView>
   );
 
@@ -585,11 +587,5 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     fontSize: 14,
     color: '#FF6B35',
     fontWeight: '600',
-  },
-  fallbackBackground: {
-    backgroundColor: isDarkMode ? '#1a1a1a' : '#FF6B35',
-  },
-  fallbackButton: {
-    backgroundColor: '#FF6B35',
   },
 });
