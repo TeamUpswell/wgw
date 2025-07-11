@@ -24,6 +24,7 @@ const GradientView = ({ children, style, colors, ...props }: any) => {
 };
 import { supabase } from "../config/supabase";
 import { manualSignup } from "../utils/manualAuth";
+import { testSupabaseConnection } from "../utils/testConnection";
 
 const { width, height } = Dimensions.get('window');
 
@@ -79,6 +80,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
 
     setIsLoading(true);
     try {
+      console.log("🔐 Testing connection first...");
+      const connectionWorks = await testSupabaseConnection();
+      
+      if (!connectionWorks) {
+        Alert.alert("Connection Error", "Cannot connect to database. Please check your internet connection.");
+        return;
+      }
+      
       console.log("🔐 Attempting signup with:", email);
 
       // Use manual signup to bypass Supabase Auth service issues
