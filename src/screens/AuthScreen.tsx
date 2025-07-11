@@ -308,54 +308,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
               onPress={isSignUp ? handleSignUp : handleSignIn}
               disabled={isLoading}
             >
-              {LinearGradient ? (
-                <LinearGradient
-                  colors={['#FF6B35', '#FF8A65']}
-                  style={styles.buttonGradient}
-                >
-                  {isLoading ? (
-                    <View style={styles.loadingContainer}>
-                      <Ionicons name="refresh" size={16} color="#fff" />
-                      <Text style={styles.primaryButtonText}>
-                        {isSignUp ? "Creating Account..." : "Signing In..."}
-                      </Text>
-                    </View>
-                  ) : (
-                    <>
-                      <Ionicons 
-                        name={isSignUp ? "person-add" : "log-in"} 
-                        size={16} 
-                        color="#fff" 
-                      />
-                      <Text style={styles.primaryButtonText}>
-                        {isSignUp ? "Create Account" : "Sign In"}
-                      </Text>
-                    </>
-                  )}
-                </LinearGradient>
-              ) : (
-                <View style={[styles.buttonGradient, styles.fallbackButton]}>
-                  {isLoading ? (
-                    <View style={styles.loadingContainer}>
-                      <Ionicons name="refresh" size={16} color="#fff" />
-                      <Text style={styles.primaryButtonText}>
-                        {isSignUp ? "Creating Account..." : "Signing In..."}
-                      </Text>
-                    </View>
-                  ) : (
-                    <>
-                      <Ionicons 
-                        name={isSignUp ? "person-add" : "log-in"} 
-                        size={16} 
-                        color="#fff" 
-                      />
-                      <Text style={styles.primaryButtonText}>
-                        {isSignUp ? "Create Account" : "Sign In"}
-                      </Text>
-                    </>
-                  )}
-                </View>
-              )}
+              <View style={styles.buttonGradient}>
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <Ionicons name="refresh" size={16} color="#fff" />
+                    <Text style={styles.primaryButtonText}>
+                      {isSignUp ? "Creating Account..." : "Signing In..."}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Ionicons 
+                      name={isSignUp ? "person-add" : "log-in"} 
+                      size={16} 
+                      color="#fff" 
+                    />
+                    <Text style={styles.primaryButtonText}>
+                      {isSignUp ? "Create Account" : "Sign In"}
+                    </Text>
+                  </>
+                )}
+              </View>
             </TouchableOpacity>
 
             {/* Switch Auth Mode */}
@@ -536,6 +509,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    backgroundColor: '#FF6B35',
   },
   secondaryButton: {
     flexDirection: 'row',
