@@ -23,6 +23,7 @@ const GradientView = ({ children, style, colors, ...props }: any) => {
   );
 };
 import { supabase } from "../config/supabase";
+import { manualSignup } from "../utils/manualAuth";
 
 const { width, height } = Dimensions.get('window');
 
@@ -80,13 +81,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
     try {
       console.log("🔐 Attempting signup with:", email);
 
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: undefined,
-        },
-      });
+      // Use manual signup to bypass Supabase Auth service issues
+      const { data: authData, error: authError } = await manualSignup(email, password);
 
       if (authError) throw authError;
 
