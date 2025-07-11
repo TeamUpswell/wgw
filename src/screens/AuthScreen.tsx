@@ -95,28 +95,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
 
         if (authData.session) {
           console.log("✅ User automatically signed in");
-
-          // Create user profile in database
-          const { error: dbError } = await supabase.from("users").insert([
-            {
-              id: authData.user.id,
-              email: authData.user.email,
-              subscription_tier: "free",
-              created_at: new Date().toISOString(),
-            },
-          ]);
-
-          if (dbError) {
-            // If it's not a duplicate key error, it's a real problem
-            if (dbError.code !== "23505") {
-              console.error("Database error saving new user:", dbError);
-              Alert.alert(
-                "Database Error", 
-                "Failed to create user profile. Please contact support if this persists."
-              );
-            }
-          }
-
+          console.log("✅ User profile will be created by database trigger");
           Alert.alert("Welcome!", "Account created successfully!");
         } else {
           Alert.alert(
