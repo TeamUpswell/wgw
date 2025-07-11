@@ -173,6 +173,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bounces={true}
         >
           {/* Header */}
           <View style={styles.header}>
@@ -361,8 +363,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    minHeight: height * 0.9,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
