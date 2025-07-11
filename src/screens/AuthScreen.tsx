@@ -95,7 +95,42 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
 
         if (authData.session) {
           console.log("✅ User automatically signed in");
-          console.log("✅ User profile will be created by database trigger");
+          
+          // Create user profile manually (trigger-free approach)
+          try {
+            const { error: profileError } = await supabase
+              .from("users")
+              .insert({
+                id: authData.user.id,
+                email: authData.user.email,
+                subscription_tier: "free",
+              });
+
+            if (profileError) {
+              console.error("❌ Profile creation error:", profileError);
+              console.error("Error details:", {
+                code: profileError.code,
+                message: profileError.message,
+                details: profileError.details,
+                hint: profileError.hint
+              });
+              
+              // Only show error if it's not a duplicate key error
+              if (profileError.code !== "23505") {
+                Alert.alert(
+                  "Profile Error", 
+                  `Failed to create user profile: ${profileError.message}`
+                );
+              } else {
+                console.log("ℹ️ User profile already exists (duplicate key)");
+              }
+            } else {
+              console.log("✅ User profile created successfully");
+            }
+          } catch (profileErr) {
+            console.error("❌ Profile creation exception:", profileErr);
+          }
+
           Alert.alert("Welcome!", "Account created successfully!");
         } else {
           Alert.alert(
