@@ -50,12 +50,14 @@ interface HomeScreenProps {
   user: any;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
+  onLogout: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   user,
   isDarkMode,
   onToggleDarkMode,
+  onLogout,
 }) => {
   console.log("[HomeScreen] render");
   const styles = getStyles(isDarkMode);
@@ -611,6 +613,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onNavigateToNotificationManagement={() => {
               setShowProfile(false);
               setShowNotificationManagement(true);
+            }}
+            onLogout={() => {
+              setShowProfile(false);
+              onLogout();
             }}
           />
         </Modal>

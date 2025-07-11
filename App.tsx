@@ -99,6 +99,17 @@ function AppContent() {
     };
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      console.log("🔐 Logging out...");
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      console.log("✅ Logged out successfully");
+    } catch (error) {
+      console.error("❌ Logout error:", error);
+    }
+  };
+
   if (isLoading) {
     return (
       <View
@@ -128,10 +139,11 @@ function AppContent() {
         <HomeScreen
           user={user}
           isDarkMode={isDarkMode}
-          onToggleDarkMode={setIsDarkMode}
+          onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+          onLogout={handleLogout}
         />
       ) : (
-        <AuthScreen />
+        <AuthScreen isDarkMode={isDarkMode} />
       )}
     </SafeAreaView>
   );

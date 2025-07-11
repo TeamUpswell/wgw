@@ -30,6 +30,7 @@ interface ProfileScreenProps {
   isOwnProfile?: boolean; // True if viewing own profile, false if viewing someone else's
   onNavigateToHistory?: (entryId?: string) => void; // Navigate to history with optional entry focus
   onNavigateToNotificationManagement?: () => void; // Navigate to notification management
+  onLogout?: () => void; // Logout functionality
 }
 
 interface ProfileStats {
@@ -68,6 +69,7 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
   isOwnProfile = true,
   onNavigateToHistory,
   onNavigateToNotificationManagement,
+  onLogout,
 }) => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -512,6 +514,42 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
               </Text>
             </View>
           </View>
+        </View>
+      )}
+
+      {/* Account Actions */}
+      {isOwnProfile && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={() => {
+              Alert.alert(
+                "Logout",
+                "Are you sure you want to logout?",
+                [
+                  {
+                    text: "Cancel",
+                    style: "cancel"
+                  },
+                  {
+                    text: "Logout",
+                    style: "destructive",
+                    onPress: () => onLogout?.()
+                  }
+                ]
+              );
+            }}
+          >
+            <View style={styles.logoutIcon}>
+              <Ionicons name="log-out" size={24} color="#E74C3C" />
+            </View>
+            <View style={styles.logoutText}>
+              <Text style={styles.logoutTitle}>Logout</Text>
+              <Text style={styles.logoutSubtitle}>Sign out of your account</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#666" />
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -1238,6 +1276,38 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     marginBottom: 4,
   },
   notificationManagementSubtitle: {
+    fontSize: 14,
+    color: isDarkMode ? '#888' : '#666',
+    lineHeight: 20,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: isDarkMode ? '#2a2a2a' : '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: isDarkMode ? '#3a3a3a' : '#e0e0e0',
+  },
+  logoutIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: isDarkMode ? '#3a3a3a' : '#f8f9fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  logoutText: {
+    flex: 1,
+  },
+  logoutTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#E74C3C',
+    marginBottom: 4,
+  },
+  logoutSubtitle: {
     fontSize: 14,
     color: isDarkMode ? '#888' : '#666',
     lineHeight: 20,
