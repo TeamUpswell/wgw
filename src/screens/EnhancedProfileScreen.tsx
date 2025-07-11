@@ -19,7 +19,7 @@ import { TopNavigationBar } from "../components/TopNavigationBar";
 import * as ImagePicker from "expo-image-picker";
 import { resizeImage, AVATAR_OPTIONS } from "../utils/imageUtils";
 import { getFollowing, getFollowers } from "../services/followService";
-import { testStoragePermissions, checkAvatarsBucket } from "../utils/storageTest";
+import { NotificationService } from "../services/notificationService";
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -29,6 +29,7 @@ interface ProfileScreenProps {
   isDarkMode?: boolean;
   isOwnProfile?: boolean; // True if viewing own profile, false if viewing someone else's
   onNavigateToHistory?: (entryId?: string) => void; // Navigate to history with optional entry focus
+  onNavigateToNotificationManagement?: () => void; // Navigate to notification management
 }
 
 interface ProfileStats {
@@ -50,19 +51,30 @@ interface RecentEntry {
   image_url?: string;
 }
 
+interface NotificationItem {
+  id: string;
+  notification_type: string;
+  title: string;
+  body: string;
+  sent_at: string;
+  opened_at?: string;
+  data?: any;
+}
+
 export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
   user,
   onClose,
   isDarkMode = false,
   isOwnProfile = true,
   onNavigateToHistory,
+  onNavigateToNotificationManagement,
 }) => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'entries' | 'stats'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'notifications' | 'stats'>('overview');
   const [stats, setStats] = useState<ProfileStats>({
     totalEntries: 0,
     currentStreak: 0,
@@ -73,7 +85,8 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
     categoriesUsed: [],
   });
   const [recentEntries, setRecentEntries] = useState<RecentEntry[]>([]);
-  const [testingStorage, setTestingStorage] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   const styles = getStyles(isDarkMode);
 
@@ -82,6 +95,12 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
     fetchProfileStats();
     fetchRecentEntries();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (activeTab === 'notifications' && isOwnProfile) {
+      fetchNotifications();
+    }
+  }, [activeTab, user?.id]);
 
   const fetchProfile = async () => {
     if (!user?.id) {
@@ -161,6 +180,20 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
       setRecentEntries(data || []);
     } catch (error) {
       console.error('Error fetching recent entries:', error);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    if (!user?.id) return;
+
+    try {
+      setLoadingNotifications(true);
+      const notificationHistory = await NotificationService.getNotificationHistory(user.id, 20);
+      setNotifications(notificationHistory || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoadingNotifications(false);
     }
   };
 
@@ -324,25 +357,6 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
-  const testStorageDirectly = async () => {
-    setTestingStorage(true);
-    try {
-      console.log('🧪 Running direct storage test...');
-      
-      const bucketCheck = await checkAvatarsBucket();
-      const permissionTest = await testStoragePermissions();
-      
-      Alert.alert(
-        "Storage Test Results",
-        `Bucket exists: ${bucketCheck.exists}\nCan upload: ${permissionTest.canUpload || false}\nError: ${bucketCheck.error || permissionTest.error || 'None'}`,
-        [{ text: "OK" }]
-      );
-    } catch (error) {
-      Alert.alert("Test Failed", error instanceof Error ? error.message : "Unknown error");
-    } finally {
-      setTestingStorage(false);
-    }
-  };
 
   const renderStatCard = (title: string, value: number | string, icon: string, color: string) => (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
@@ -470,31 +484,36 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
         </View>
       </View>
 
-      {/* Recent Entries Preview */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Entries</Text>
-          {recentEntries.length > 0 && onNavigateToHistory && (
+      {/* Notification Management */}
+      {isOwnProfile && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Notification Templates</Text>
             <TouchableOpacity 
               style={styles.viewAllButton}
-              onPress={() => onNavigateToHistory()}
+              onPress={() => {
+                onNavigateToNotificationManagement?.();
+              }}
             >
-              <Text style={styles.viewAllText}>View All</Text>
+              <Text style={styles.viewAllText}>Manage</Text>
               <Ionicons name="chevron-forward" size={16} color="#FF6B35" />
             </TouchableOpacity>
-          )}
+          </View>
+          <View style={styles.notificationManagementCard}>
+            <View style={styles.notificationManagementIcon}>
+              <Ionicons name="notifications" size={24} color="#FF6B35" />
+            </View>
+            <View style={styles.notificationManagementText}>
+              <Text style={styles.notificationManagementTitle}>
+                Customize Your Notifications
+              </Text>
+              <Text style={styles.notificationManagementSubtitle}>
+                Create, edit, and schedule personalized notification templates
+              </Text>
+            </View>
+          </View>
         </View>
-        {recentEntries.length > 0 ? (
-          <View style={styles.entriesGrid}>
-            {recentEntries.slice(0, 4).map(renderRecentEntry)}
-          </View>
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="journal-outline" size={48} color={isDarkMode ? "#666" : "#999"} />
-            <Text style={styles.emptyStateText}>No entries yet</Text>
-          </View>
-        )}
-      </View>
+      )}
     </View>
   );
 
@@ -523,27 +542,86 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
     </View>
   );
 
-  const renderEntriesTab = () => (
+  const renderNotificationItem = (notification: NotificationItem) => {
+    const getNotificationIcon = (type: string) => {
+      switch (type) {
+        case 'friend_entry': return 'people';
+        case 'comment': return 'chatbubble';
+        case 'like': return 'heart';
+        case 'follow_request': return 'person-add';
+        case 'daily_reminder': return 'alarm';
+        case 'streak_milestone': return 'trophy';
+        case 'weekly_summary': return 'calendar';
+        case 'monthly_summary': return 'calendar-outline';
+        default: return 'notifications';
+      }
+    };
+
+    const getNotificationColor = (type: string) => {
+      switch (type) {
+        case 'friend_entry': return '#4ECDC4';
+        case 'comment': return '#3498DB';
+        case 'like': return '#E74C3C';
+        case 'follow_request': return '#9B59B6';
+        case 'daily_reminder': return '#FF6B35';
+        case 'streak_milestone': return '#F39C12';
+        case 'weekly_summary': return '#2ECC71';
+        case 'monthly_summary': return '#27AE60';
+        default: return '#FF6B35';
+      }
+    };
+
+    const formatNotificationTime = (dateString: string) => {
+      const now = new Date();
+      const notificationDate = new Date(dateString);
+      const diffInMinutes = Math.floor((now.getTime() - notificationDate.getTime()) / (1000 * 60));
+      
+      if (diffInMinutes < 1) return "Just now";
+      if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+      
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      if (diffInHours < 24) return `${diffInHours}h ago`;
+      
+      const diffInDays = Math.floor(diffInHours / 24);
+      if (diffInDays < 7) return `${diffInDays}d ago`;
+      
+      return notificationDate.toLocaleDateString();
+    };
+
+    return (
+      <View key={notification.id} style={[styles.notificationCard, !notification.opened_at && styles.unreadNotification]}>
+        <View style={[styles.notificationIcon, { backgroundColor: getNotificationColor(notification.notification_type) }]}>
+          <Ionicons name={getNotificationIcon(notification.notification_type) as any} size={20} color="#fff" />
+        </View>
+        <View style={styles.notificationContent}>
+          <Text style={styles.notificationTitle}>{notification.title}</Text>
+          <Text style={styles.notificationBody}>{notification.body}</Text>
+          <Text style={styles.notificationTime}>{formatNotificationTime(notification.sent_at)}</Text>
+        </View>
+        {!notification.opened_at && (
+          <View style={styles.unreadDot} />
+        )}
+      </View>
+    );
+  };
+
+  const renderNotificationsTab = () => (
     <View style={styles.tabContent}>
-      {recentEntries.length > 0 ? (
-        <View style={styles.entriesColumn}>
-          {recentEntries.map(renderRecentEntry)}
-          {onNavigateToHistory && (
-            <TouchableOpacity 
-              style={styles.loadMoreButton}
-              onPress={() => onNavigateToHistory()}
-            >
-              <Text style={styles.loadMoreText}>View All Entries</Text>
-              <Ionicons name="chevron-forward" size={20} color="#FF6B35" />
-            </TouchableOpacity>
-          )}
+      {loadingNotifications ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="large" color="#FF6B35" />
+          <Text style={styles.loadingText}>Loading notifications...</Text>
+        </View>
+      ) : notifications.length > 0 ? (
+        <View style={styles.notificationsList}>
+          {notifications.map(renderNotificationItem)}
         </View>
       ) : (
         <View style={styles.emptyState}>
-          <Ionicons name="journal-outline" size={48} color={isDarkMode ? "#666" : "#999"} />
-          <Text style={styles.emptyStateText}>No entries to show</Text>
+          <Ionicons name="notifications-outline" size={48} color={isDarkMode ? "#666" : "#999"} />
+          <Text style={styles.emptyStateText}>No notifications yet</Text>
           <Text style={styles.emptyStateSubtext}>
-            {isOwnProfile ? "Start your journey today!" : "This user hasn't shared any entries yet."}
+            You'll see your notifications here when friends interact with your entries
           </Text>
         </View>
       )}
@@ -596,7 +674,7 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
       <View style={styles.tabBar}>
         {[
           { key: 'overview', title: 'Overview', icon: 'person' },
-          { key: 'entries', title: 'Entries', icon: 'journal' },
+          ...(isOwnProfile ? [{ key: 'notifications', title: 'Notifications', icon: 'notifications' }] : []),
           { key: 'stats', title: 'Stats', icon: 'analytics' },
         ].map((tab) => (
           <TouchableOpacity
@@ -621,7 +699,7 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {activeTab === 'overview' && renderOverviewTab()}
-        {activeTab === 'entries' && renderEntriesTab()}
+        {activeTab === 'notifications' && isOwnProfile && renderNotificationsTab()}
         {activeTab === 'stats' && renderStatsTab()}
       </ScrollView>
 
@@ -657,18 +735,6 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
               >
                 <Ionicons name="create-outline" size={20} color="#fff" />
                 <Text style={styles.editButtonText}>Edit Profile</Text>
-              </TouchableOpacity>
-              
-              {/* Debug Storage Test Button - Remove in production */}
-              <TouchableOpacity
-                style={[styles.actionButton, styles.testButton]}
-                onPress={testStorageDirectly}
-                disabled={testingStorage}
-              >
-                <Ionicons name="bug-outline" size={16} color="#666" />
-                <Text style={styles.testButtonText}>
-                  {testingStorage ? "Testing..." : "Test Storage"}
-                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -1085,5 +1151,95 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FF6B35',
+  },
+
+  // Notification Styles
+  loadingState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  notificationsList: {
+    gap: 8,
+  },
+  notificationCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: isDarkMode ? '#2a2a2a' : '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: isDarkMode ? '#3a3a3a' : '#e0e0e0',
+    gap: 12,
+  },
+  unreadNotification: {
+    borderColor: '#FF6B35',
+    borderWidth: 2,
+  },
+  notificationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationContent: {
+    flex: 1,
+  },
+  notificationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: isDarkMode ? '#fff' : '#333',
+    marginBottom: 4,
+  },
+  notificationBody: {
+    fontSize: 14,
+    color: isDarkMode ? '#ccc' : '#666',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  notificationTime: {
+    fontSize: 12,
+    color: isDarkMode ? '#888' : '#999',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF6B35',
+    marginTop: 4,
+  },
+
+  // Notification Management Styles
+  notificationManagementCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: isDarkMode ? '#2a2a2a' : '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: isDarkMode ? '#3a3a3a' : '#e0e0e0',
+  },
+  notificationManagementIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: isDarkMode ? '#3a3a3a' : '#f8f9fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  notificationManagementText: {
+    flex: 1,
+  },
+  notificationManagementTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: isDarkMode ? '#fff' : '#333',
+    marginBottom: 4,
+  },
+  notificationManagementSubtitle: {
+    fontSize: 14,
+    color: isDarkMode ? '#888' : '#666',
+    lineHeight: 20,
   },
 });

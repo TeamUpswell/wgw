@@ -8,8 +8,11 @@ import {
   Alert,
   Animated,
   Dimensions,
+  Share,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { CommentModal } from "./CommentModal";
+import { toggleLike, getEntryWithSocialData, EntryWithSocialData } from "../services/socialService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -20,7 +23,7 @@ interface FeedEntryCardProps {
   index?: number;
   currentUserId?: string;
   onPrivacyToggle?: (entryId: string, isPrivate: boolean) => void;
-  onDelete?: (entryId: string) => void;
+  onEdit?: (entry: any) => void;
   onAvatarPress?: () => void;
 }
 
@@ -31,7 +34,7 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
   index = 0,
   currentUserId,
   onPrivacyToggle,
-  onDelete,
+  onEdit,
   onAvatarPress
 }) => {
   // Debug logging
@@ -55,6 +58,15 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
   // AI response collapsible state
   const [showAIResponse, setShowAIResponse] = useState(false);
   const aiResponseAnim = useRef(new Animated.Value(0)).current;
+  
+  // Social interaction state
+  const [socialData, setSocialData] = useState<EntryWithSocialData>({
+    id: entry.id,
+    likes_count: 0,
+    comments_count: 0,
+    user_has_liked: false,
+  });
+  const [showCommentModal, setShowCommentModal] = useState(false);
 
   // Animate in on mount
   useEffect(() => {
@@ -77,8 +89,26 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
     ]).start();
   }, [index]);
 
+  // Load social data
+  useEffect(() => {
+    if (currentUserId && entry.id) {
+      loadSocialData();
+    }
+  }, [currentUserId, entry.id]);
+
+  const loadSocialData = async () => {
+    try {
+      const data = await getEntryWithSocialData(entry.id, currentUserId);
+      setSocialData(data);
+    } catch (error) {
+      console.error('Error loading social data:', error);
+    }
+  };
+
   // Animated like button
-  const handleLike = () => {
+  const handleLike = async () => {
+    if (!currentUserId) return;
+
     // Animate the like button
     Animated.sequence([
       Animated.timing(likeAnim, {
@@ -93,18 +123,35 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
       }),
     ]).start();
 
-    Alert.alert("Like", "You liked this entry!");
-    // TODO: Connect to backend
+    try {
+      const result = await toggleLike(currentUserId, entry.id);
+      setSocialData(prev => ({
+        ...prev,
+        likes_count: result.likeCount,
+        user_has_liked: result.isLiked,
+      }));
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      Alert.alert('Error', 'Failed to update like. Please try again.');
+    }
   };
 
   const handleComment = () => {
-    Alert.alert("Comment", "Open comments modal!");
-    // TODO: Open comment modal or navigate
+    setShowCommentModal(true);
   };
 
-  const handleShare = () => {
-    Alert.alert("Share", "Share functionality coming soon!");
-    // TODO: Implement share logic
+  const handleShare = async () => {
+    try {
+      const shareMessage = `Check out this positive moment:\n\n"${entry.transcription}"\n\n${entry.category ? `Category: ${entry.category}\n` : ''}Shared from What's Going Well`;
+      
+      await Share.share({
+        message: shareMessage,
+        title: "What's Going Well - Positive Moment",
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+      Alert.alert('Error', 'Failed to share entry. Please try again.');
+    }
   };
 
   const handlePrivacyToggle = () => {
@@ -114,27 +161,6 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
     }
   };
 
-  const handleDelete = () => {
-    Alert.alert(
-      "Delete Entry",
-      "Are you sure you want to delete this entry? This action cannot be undone.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            if (onDelete) {
-              onDelete(entry.id);
-            }
-          }
-        }
-      ]
-    );
-  };
 
   const toggleAIResponse = () => {
     const toValue = showAIResponse ? 0 : 1;
@@ -240,14 +266,14 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
             </TouchableOpacity>
           )}
           
-          {/* Delete button - only for user's own entries */}
-          {currentUserId === entry.user_id && onDelete && (
+          {/* Edit button - only for user's own entries */}
+          {currentUserId === entry.user_id && onEdit && (
             <TouchableOpacity 
-              style={styles.deleteButton}
-              onPress={handleDelete}
+              style={styles.editButton}
+              onPress={() => onEdit(entry)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="trash-outline" size={16} color="#999" />
+              <Ionicons name="create-outline" size={16} color="#666" />
             </TouchableOpacity>
           )}
         </View>
@@ -364,14 +390,25 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
       >
         <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
           <Animated.View style={{ transform: [{ scale: likeAnim }] }}>
-            <Ionicons name="heart-outline" size={24} color="#666" />
+            <Ionicons 
+              name={socialData.user_has_liked ? "heart" : "heart-outline"} 
+              size={24} 
+              color={socialData.user_has_liked ? "#FF6B6B" : "#666"} 
+            />
           </Animated.View>
-          <Text style={styles.actionText}>Like</Text>
+          <Text style={[
+            styles.actionText, 
+            socialData.user_has_liked && { color: "#FF6B6B" }
+          ]}>
+            {socialData.likes_count > 0 ? `${socialData.likes_count}` : 'Like'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionButton} onPress={handleComment}>
           <Ionicons name="chatbubble-outline" size={24} color="#666" />
-          <Text style={styles.actionText}>Comment</Text>
+          <Text style={styles.actionText}>
+            {socialData.comments_count > 0 ? `${socialData.comments_count}` : 'Comment'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
@@ -379,6 +416,19 @@ export const FeedEntryCard: React.FC<FeedEntryCardProps> = ({
           <Text style={styles.actionText}>Share</Text>
         </TouchableOpacity>
       </Animated.View>
+
+      {/* Comment Modal */}
+      <CommentModal
+        visible={showCommentModal}
+        onClose={() => {
+          setShowCommentModal(false);
+          // Refresh social data after commenting
+          loadSocialData();
+        }}
+        entryId={entry.id}
+        user={{ id: currentUserId }}
+        isDarkMode={false}
+      />
     </Animated.View>
   );
 };
@@ -449,7 +499,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#f8f8f8',
   },
-  deleteButton: {
+  editButton: {
     padding: 6,
     borderRadius: 12,
     backgroundColor: '#f8f8f8',

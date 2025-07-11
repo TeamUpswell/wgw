@@ -16,6 +16,7 @@ import { TopNavigationBar } from '../components/TopNavigationBar';
 import { GroupSettingsScreen } from './GroupSettingsScreen';
 import { EnhancedProfileScreen } from './EnhancedProfileScreen';
 import { InviteModal } from '../components/InviteModal';
+import { UserCodeModal } from '../components/UserCodeModal';
 
 interface GroupsScreenProps {
   user: any;
@@ -56,6 +57,7 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedGroupForInvite, setSelectedGroupForInvite] = useState<Group | null>(null);
+  const [showUserCodeModal, setShowUserCodeModal] = useState(false);
 
   const styles = getStyles(isDarkMode);
 
@@ -252,7 +254,21 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
 
       {/* Quick Invite Section */}
       <View style={styles.inviteSection}>
-        <Text style={styles.sectionTitle}>Invite Friends</Text>
+        <Text style={styles.sectionTitle}>Connect with Friends</Text>
+        <TouchableOpacity 
+          style={styles.inviteCard}
+          onPress={() => setShowUserCodeModal(true)}
+        >
+          <View style={styles.inviteContent}>
+            <Ionicons name="qr-code" size={24} color="#FF6B35" />
+            <View style={styles.inviteText}>
+              <Text style={styles.inviteTitle}>Share Your Code</Text>
+              <Text style={styles.inviteSubtitle}>Connect with friends using codes</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={isDarkMode ? "#666" : "#999"} />
+        </TouchableOpacity>
+        
         <TouchableOpacity 
           style={styles.inviteCard}
           onPress={() => setShowInviteModal(true)}
@@ -444,6 +460,14 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({
         isDarkMode={isDarkMode}
         user={user}
         group={selectedGroupForInvite}
+      />
+
+      {/* User Code Modal */}
+      <UserCodeModal
+        visible={showUserCodeModal}
+        onClose={() => setShowUserCodeModal(false)}
+        user={user}
+        isDarkMode={isDarkMode}
       />
     </SafeAreaView>
   );

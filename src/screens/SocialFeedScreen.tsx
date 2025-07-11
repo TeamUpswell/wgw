@@ -15,6 +15,7 @@ import {
   Image,
 } from "react-native";
 import { FeedEntryCard } from "../components/FeedEntryCard";
+import { EditEntryScreen } from "./EditEntryScreen";
 import { supabase } from "../config/supabase";
 import { getFollowing } from "../services/followService";
 import { Ionicons } from "@expo/vector-icons";
@@ -57,6 +58,10 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
   // User profile modal state
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
+  
+  // Edit entry modal state
+  const [selectedEntry, setSelectedEntry] = useState<any>(null);
+  const [showEditEntry, setShowEditEntry] = useState(false);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -372,29 +377,24 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
     }
   };
 
-  const handleDelete = async (entryId: string) => {
-    try {
-      console.log(`🗑️ Deleting entry: ${entryId}`);
-      
-      const { error } = await supabase
-        .from("daily_entries")
-        .delete()
-        .eq("id", entryId);
 
-      if (error) {
-        console.error("Error deleting entry:", error);
-        Alert.alert("Error", "Failed to delete entry. Please try again.");
-        return;
-      }
+  const handleEdit = (entry: any) => {
+    setSelectedEntry(entry);
+    setShowEditEntry(true);
+  };
 
-      // Remove from local state
-      setEntries(prev => prev.filter(entry => entry.id !== entryId));
-      
-      console.log(`✅ Entry ${entryId} deleted successfully`);
-    } catch (error) {
-      console.error("Delete error:", error);
-      Alert.alert("Error", "Failed to delete entry. Please try again.");
-    }
+  const handleSaveEdit = (updatedEntry: any) => {
+    // Update the entry in local state
+    setEntries(prev => prev.map(entry => 
+      entry.id === updatedEntry.id 
+        ? { ...entry, ...updatedEntry }
+        : entry
+    ));
+  };
+
+  const handleDeleteFromEdit = (entryId: string) => {
+    // Remove from local state
+    setEntries(prev => prev.filter(entry => entry.id !== entryId));
   };
 
   // Expose refresh function to parent component
@@ -646,7 +646,7 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
                     navigation={null}
                     currentUserId={user.id}
                     onPrivacyToggle={handlePrivacyToggle}
-                    onDelete={handleDelete}
+                    onEdit={handleEdit}
                     onAvatarPress={() => handleAvatarPress(entry)}
                     style={{
                       marginHorizontal: 16,
@@ -742,6 +742,27 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
                 )}
               </ScrollView>
             </View>
+          </Modal>
+        )}
+
+        {/* Edit Entry Modal */}
+        {showEditEntry && selectedEntry && (
+          <Modal
+            visible={showEditEntry}
+            animationType="slide"
+            presentationStyle="fullScreen"
+          >
+            <EditEntryScreen
+              user={user}
+              entry={selectedEntry}
+              isDarkMode={false}
+              onBack={() => {
+                setShowEditEntry(false);
+                setSelectedEntry(null);
+              }}
+              onSave={handleSaveEdit}
+              onDelete={handleDeleteFromEdit}
+            />
           </Modal>
         )}
       </Animated.View>

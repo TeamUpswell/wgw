@@ -22,6 +22,7 @@ import { supabase } from "../config/supabase";
 import { AIService } from "../services/ai";
 import ModalSelector from "react-native-modal-selector";
 import { ShareTemplateModal } from "../components/ShareTemplateModal";
+import { EditEntryScreen } from "./EditEntryScreen";
 
 interface HistoryScreenProps {
   user: any;
@@ -31,13 +32,15 @@ interface HistoryScreenProps {
   onBack: () => void;
 }
 interface DailyEntry {
-  id: number;
+  id: string;
+  user_id: string;
   created_at: string;
   category: string;
   transcription: string;
   ai_response?: string;
   favorite?: boolean;
-  image_url?: string; // Add image URL field
+  image_url?: string;
+  is_private: boolean;
 }
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   user,
@@ -57,6 +60,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const [editingEntry, setEditingEntry] = useState<DailyEntry | null>(null);
   const [editText, setEditText] = useState("");
   const [editLoading, setEditLoading] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   // Share state
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(0);
@@ -88,7 +92,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       setIsLoading(true);
       const { data, error } = await supabase
         .from("daily_entries")
-        .select("id, created_at, category, transcription, ai_response, favorite, image_url")
+        .select("id, user_id, created_at, category, transcription, ai_response, favorite, image_url, is_private")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -149,7 +153,21 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   };
   const handleEdit = (entry: DailyEntry) => {
     setEditingEntry(entry);
-    setEditText(entry.transcription);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = (updatedEntry: DailyEntry) => {
+    // Update the entry in local state
+    setEntries(prev => prev.map(entry => 
+      entry.id === updatedEntry.id 
+        ? { ...entry, ...updatedEntry }
+        : entry
+    ));
+  };
+
+  const handleDeleteFromEdit = (entryId: string) => {
+    // Remove from local state
+    setEntries(prev => prev.filter(entry => entry.id !== entryId));
   };
   const handleDelete = (entry: DailyEntry) => {
     Alert.alert("Delete Entry", "Are you sure you want to delete this entry?", [
@@ -808,90 +826,23 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         </Modal>
 
         {/* Edit Modal */}
-        {editingEntry && (
+        {showEditModal && editingEntry && (
           <Modal
-            visible={true}
-            transparent
+            visible={showEditModal}
             animationType="slide"
-            onRequestClose={() => setEditingEntry(null)}
+            presentationStyle="fullScreen"
           >
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: "rgba(0,0,0,0.5)",
-                justifyContent: "center",
-                alignItems: "center",
+            <EditEntryScreen
+              user={user}
+              entry={editingEntry}
+              isDarkMode={isDarkMode}
+              onBack={() => {
+                setShowEditModal(false);
+                setEditingEntry(null);
               }}
-            >
-              <View
-                style={{
-                  backgroundColor: isDarkMode ? "#222" : "#fff",
-                  borderRadius: 16,
-                  padding: 24,
-                  width: "85%",
-                }}
-              >
-                <Text
-                  style={{
-                    fontWeight: "bold",
-                    fontSize: 18,
-                    marginBottom: 12,
-                    color: isDarkMode ? "#fff" : "#333",
-                  }}
-                >
-                  Edit Entry
-                </Text>
-                <TextInput
-                  value={editText}
-                  onChangeText={setEditText}
-                  multiline
-                  style={{
-                    minHeight: 80,
-                    color: isDarkMode ? "#fff" : "#333",
-                    backgroundColor: isDarkMode ? "#333" : "#f4f4f4",
-                    borderRadius: 8,
-                    padding: 10,
-                    marginBottom: 16,
-                    borderWidth: 1,
-                    borderColor: "#ccc",
-                  }}
-                />
-                <View
-                  style={{ flexDirection: "row", justifyContent: "flex-end" }}
-                >
-                  <TouchableOpacity
-                    onPress={() => setEditingEntry(null)}
-                    style={{ marginRight: 16 }}
-                    disabled={editLoading}
-                  >
-                    <Text style={{ color: "#aaa" }}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={async () => {
-                      setEditLoading(true);
-                      try {
-                        await supabase
-                          .from("daily_entries")
-                          .update({ transcription: editText })
-                          .eq("id", editingEntry.id);
-                        setEditingEntry(null);
-                        setEditText("");
-                        loadEntries();
-                      } catch (e) {
-                        Alert.alert("Error", "Could not save changes.");
-                      } finally {
-                        setEditLoading(false);
-                      }
-                    }}
-                    disabled={editLoading}
-                  >
-                    <Text style={{ color: "#007AFF", fontWeight: "bold" }}>
-                      {editLoading ? "Saving..." : "Save"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
+              onSave={handleSaveEdit}
+              onDelete={handleDeleteFromEdit}
+            />
           </Modal>
         )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { InviteService } from '../services/inviteService';
+import { createOrGetUserCode } from '../services/userCodeService';
 
 interface InviteModalProps {
   visible: boolean;
@@ -35,11 +36,13 @@ export const InviteModal: React.FC<InviteModalProps> = ({
   user,
   group = null,
 }) => {
-  const [inviteType, setInviteType] = useState<'email' | 'sms'>('email');
+  const [inviteType, setInviteType] = useState<'email' | 'sms' | 'code'>('code');
   const [emailList, setEmailList] = useState('');
   const [phoneList, setPhoneList] = useState('');
   const [personalMessage, setPersonalMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [userCode, setUserCode] = useState<string | null>(null);
+  const [loadingCode, setLoadingCode] = useState(false);
 
   const defaultMessage = group 
     ? `Hey! I'd love to have you join my "${group.name}" group on "What's Going Well" - it's an amazing app for practicing daily gratitude and tracking positive moments together.
@@ -53,6 +56,46 @@ The app has inspiring AI coaching and helps build consistent gratitude habits. I
 
 Want to join me on this positive journey?`;
 
+  useEffect(() => {
+    if (visible && user?.id && !userCode) {
+      loadUserCode();
+    }
+  }, [visible, user?.id]);
+
+  const loadUserCode = async () => {
+    try {
+      setLoadingCode(true);
+      const code = await createOrGetUserCode(user.id);
+      setUserCode(code);
+    } catch (error) {
+      console.error('Error loading user code:', error);
+      Alert.alert('Error', 'Failed to load your user code. Please try again.');
+    } finally {
+      setLoadingCode(false);
+    }
+  };
+
+  const handleShareCode = async () => {
+    if (!userCode) {
+      Alert.alert('Error', 'User code not available. Please try again.');
+      return;
+    }
+
+    try {
+      const shareMessage = group 
+        ? `Hey! Join my "${group.name}" group on What's Going Well using my code: ${userCode}\n\n${personalMessage || defaultMessage}`
+        : `Hey! Connect with me on What's Going Well using my code: ${userCode}\n\n${personalMessage || defaultMessage}`;
+      
+      await Share.share({
+        message: shareMessage,
+        title: group ? `Join ${group.name} Group` : "Connect on What's Going Well",
+      });
+    } catch (error) {
+      console.error('Error sharing code:', error);
+      Alert.alert('Error', 'Failed to share code. Please try again.');
+    }
+  };
+
   const handleSendInvites = async () => {
     if (inviteType === 'email' && !emailList.trim()) {
       Alert.alert('Error', 'Please enter at least one email address');
@@ -61,6 +104,11 @@ Want to join me on this positive journey?`;
     
     if (inviteType === 'sms' && !phoneList.trim()) {
       Alert.alert('Error', 'Please enter at least one phone number');
+      return;
+    }
+
+    if (inviteType === 'code') {
+      await handleShareCode();
       return;
     }
 
@@ -147,8 +195,8 @@ Want to join me on this positive journey?`;
         </View>
 
         <ScrollView style={styles.content}>
-          {/* Invite Type Toggle */}
-          <View style={styles.toggleContainer}>
+          {/* Invite Type Toggle - Hidden for now, code only */}
+          {/* <View style={styles.toggleContainer}>
             <TouchableOpacity
               style={[styles.toggleButton, inviteType === 'email' && styles.toggleButtonActive]}
               onPress={() => setInviteType('email')}
@@ -182,31 +230,50 @@ Want to join me on this positive journey?`;
                 SMS
               </Text>
             </TouchableOpacity>
-          </View>
+            
+            <TouchableOpacity
+              style={[styles.toggleButton, inviteType === 'code' && styles.toggleButtonActive]}
+              onPress={() => setInviteType('code')}
+            >
+              <Ionicons 
+                name="qr-code" 
+                size={20} 
+                color={inviteType === 'code' ? "#fff" : (isDarkMode ? "#ccc" : "#666")} 
+              />
+              <Text style={[
+                styles.toggleButtonText, 
+                inviteType === 'code' && styles.toggleButtonTextActive
+              ]}>
+                Code
+              </Text>
+            </TouchableOpacity>
+          </View> */}
 
-          {/* Contact Input */}
+          {/* User Code Display */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {inviteType === 'email' ? 'Email Addresses' : 'Phone Numbers'}
-            </Text>
+            <Text style={styles.sectionTitle}>Your Invite Code</Text>
             <Text style={styles.sectionSubtitle}>
-              {inviteType === 'email' 
-                ? 'Enter email addresses (one per line or comma-separated)'
-                : 'Enter phone numbers (one per line or comma-separated)'
-              }
+              Share this code with friends so they can find and follow you
             </Text>
-            <TextInput
-              style={styles.contactInput}
-              value={inviteType === 'email' ? emailList : phoneList}
-              onChangeText={inviteType === 'email' ? setEmailList : setPhoneList}
-              placeholder={inviteType === 'email' 
-                ? 'friend1@example.com, friend2@example.com...'
-                : '+1234567890, +9876543210...'
-              }
-              placeholderTextColor={isDarkMode ? "#666" : "#999"}
-              multiline
-              textAlignVertical="top"
-            />
+            {loadingCode ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Generating your code...</Text>
+              </View>
+            ) : (
+              <View style={styles.codeContainer}>
+                <Text style={styles.codeText}>{userCode || 'Loading...'}</Text>
+                <TouchableOpacity
+                  style={styles.copyButton}
+                  onPress={() => {
+                    if (userCode) {
+                      Alert.alert('Copy Code', `Your code is: ${userCode}\n\nLong press to select and copy this code.`);
+                    }
+                  }}
+                >
+                  <Ionicons name="copy-outline" size={20} color="#FF6B35" />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           {/* Personal Message */}
@@ -238,7 +305,7 @@ Want to join me on this positive journey?`;
               <>
                 <Ionicons name="send" size={20} color="#fff" />
                 <Text style={styles.sendButtonText}>
-                  Send {inviteType === 'email' ? 'Email' : 'SMS'} Invites
+                  Share Code
                 </Text>
               </>
             )}
@@ -363,5 +430,36 @@ const getStyles = (isDarkMode: boolean) =>
       fontSize: 18,
       fontWeight: "600",
       color: "#fff",
+    },
+    loadingContainer: {
+      alignItems: "center",
+      paddingVertical: 20,
+    },
+    loadingText: {
+      fontSize: 16,
+      color: isDarkMode ? "#888" : "#666",
+    },
+    codeContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDarkMode ? "#2a2a2a" : "#fff",
+      borderRadius: 12,
+      padding: 20,
+      borderWidth: 2,
+      borderColor: "#FF6B35",
+      borderStyle: "dashed",
+    },
+    codeText: {
+      flex: 1,
+      fontSize: 24,
+      fontWeight: "bold",
+      color: "#FF6B35",
+      textAlign: "center",
+      fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    },
+    copyButton: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: isDarkMode ? "#3a3a3a" : "#f8f8f8",
     },
   });

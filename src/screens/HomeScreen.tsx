@@ -39,6 +39,7 @@ import { EnhancedProfileScreen } from "./EnhancedProfileScreen";
 import { GroupsScreen } from "./GroupsScreen";
 import { EnhancedJournalScreen } from "./EnhancedJournalScreen";
 import { InspirationScreen } from "./InspirationScreen";
+import { NotificationManagementScreen } from "./NotificationManagementScreen";
 
 // Hooks and utilities
 import { getStyles } from "../styles/homeScreenStyles";
@@ -71,6 +72,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [showGroups, setShowGroups] = useState(false);
   const [showJournal, setShowJournal] = useState(false); // <-- Add journal state
   const [showInspiration, setShowInspiration] = useState(false); // <-- Add inspiration state
+  const [showNotificationManagement, setShowNotificationManagement] = useState(false);
   const [currentTab, setCurrentTab] = useState<'home' | 'journal' | 'groups' | 'inspire'>('home');
   const [isFirstTime, setIsFirstTime] = useState(false);
   const [privacyState, setPrivacyState] = useState(false); // Track privacy setting from RecorderSection
@@ -606,6 +608,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 setShowJournal(true);
               }, 300);
             }}
+            onNavigateToNotificationManagement={() => {
+              setShowProfile(false);
+              setShowNotificationManagement(true);
+            }}
           />
         </Modal>
       )}
@@ -777,6 +783,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           isDarkMode={isDarkMode}
           initialPrivacy={privacyState}
         />
+      )}
+
+      {/* Notification Management Screen Modal */}
+      {showNotificationManagement && (
+        <Modal visible={showNotificationManagement} animationType="slide">
+          <NotificationManagementScreen
+            user={user}
+            isDarkMode={isDarkMode}
+            onBack={() => setShowNotificationManagement(false)}
+          />
+        </Modal>
       )}
     </View>
   );

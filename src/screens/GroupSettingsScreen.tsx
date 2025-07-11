@@ -8,10 +8,12 @@ import {
   Switch,
   Alert,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
 import { TopNavigationBar } from '../components/TopNavigationBar';
+import { InviteModal } from '../components/InviteModal';
 import { saveGroupSettings, getGroupSettings, GroupSharingSettings } from '../services/groupService';
 
 interface GroupSettingsScreenProps {
@@ -51,6 +53,7 @@ export const GroupSettingsScreen: React.FC<GroupSettingsScreenProps> = ({
 
   const [userCategories, setUserCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   const styles = getStyles(isDarkMode);
 
@@ -237,6 +240,15 @@ export const GroupSettingsScreen: React.FC<GroupSettingsScreenProps> = ({
           </View>
         </View>
 
+        {/* Invite Friends Button */}
+        <TouchableOpacity 
+          style={styles.inviteButton}
+          onPress={() => setShowInviteModal(true)}
+        >
+          <Ionicons name="person-add" size={20} color="#fff" />
+          <Text style={styles.inviteButtonText}>Invite Friends to {group.name}</Text>
+        </TouchableOpacity>
+
         {/* Quick Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Settings</Text>
@@ -325,6 +337,15 @@ export const GroupSettingsScreen: React.FC<GroupSettingsScreenProps> = ({
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Invite Modal */}
+      <InviteModal
+        visible={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        isDarkMode={isDarkMode}
+        user={user}
+        group={group}
+      />
     </SafeAreaView>
   );
 };
@@ -506,6 +527,24 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     marginBottom: 32,
   },
   saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // Invite Button
+  inviteButton: {
+    backgroundColor: '#FF6B35',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    gap: 8,
+  },
+  inviteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
