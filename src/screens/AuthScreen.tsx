@@ -183,9 +183,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
                 color={isDarkMode ? "#FF6B35" : "#fff"} 
               />
             </View>
-            <Text style={styles.title}>Welcome to Going Well</Text>
+            <Text style={styles.title}>Welcome to What is Going Well</Text>
             <Text style={styles.subtitle}>
-              Your daily gratitude companion
+              One Question Every Day
             </Text>
           </View>
 
