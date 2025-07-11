@@ -13,21 +13,15 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-// Import LinearGradient with fallback
-let LinearGradient: any = null;
-try {
-  LinearGradient = require("expo-linear-gradient").LinearGradient;
-} catch (error) {
-  console.warn("LinearGradient not available, using fallback");
-  // Create a simple fallback component that mimics LinearGradient
-  LinearGradient = ({ children, style, colors, ...props }: any) => {
-    const fallbackStyle = {
-      backgroundColor: colors && colors[0] ? colors[0] : '#FF6B35',
-      ...style,
-    };
-    return React.createElement(View, { style: fallbackStyle, ...props }, children);
-  };
-}
+// Use pure React Native View instead of LinearGradient for better compatibility
+const GradientView = ({ children, style, colors, ...props }: any) => {
+  const backgroundColor = colors && colors[0] ? colors[0] : '#FF6B35';
+  return (
+    <View style={[style, { backgroundColor }]} {...props}>
+      {children}
+    </View>
+  );
+};
 import { supabase } from "../config/supabase";
 
 const { width, height } = Dimensions.get('window');
@@ -161,7 +155,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       
-      <LinearGradient
+      <GradientView
         colors={isDarkMode 
           ? ['#1a1a1a', '#2a2a2a', '#1a1a1a'] 
           : ['#FF6B35', '#FF8A65', '#FFAB91']
@@ -169,7 +163,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
         style={styles.gradient}
       >
         {renderContent()}
-      </LinearGradient>
+      </GradientView>
     </SafeAreaView>
   );
 
