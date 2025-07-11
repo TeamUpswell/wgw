@@ -106,8 +106,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
             },
           ]);
 
-          if (dbError && dbError.code !== "23505") {
-            console.warn("Database insert warning:", dbError);
+          if (dbError) {
+            // If it's not a duplicate key error, it's a real problem
+            if (dbError.code !== "23505") {
+              console.error("Database error saving new user:", dbError);
+              Alert.alert(
+                "Database Error", 
+                "Failed to create user profile. Please contact support if this persists."
+              );
+            }
           }
 
           Alert.alert("Welcome!", "Account created successfully!");
@@ -375,7 +382,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: isDarkMode ? 'rgba(255, 107, 53, 0.1)' : 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: isDarkMode ? '#2a2a2a' : 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -406,7 +413,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     fontWeight: "400",
   },
   formContainer: {
-    backgroundColor: isDarkMode ? 'rgba(42, 42, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: isDarkMode ? '#2a2a2a' : '#ffffff',
     margin: 20,
     borderRadius: 20,
     padding: 24,
