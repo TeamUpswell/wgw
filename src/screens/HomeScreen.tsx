@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../config/supabase";
 
 // Component imports
-import { RecorderSection } from "../components/RecorderSection";
+import { WelcomeScreen } from "../components/WelcomeScreen";
 import { WeeklyProgress } from "../components/WeeklyProgress";
 import { EncouragementMessage } from "../components/EncouragementMessage";
 import { CelebrationView } from "../components/CelebrationView";
@@ -557,66 +557,55 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {/* Main Content Area */}
       <View style={{ flex: 1 }}>
         {isAddingAdditionalEntry ? (
-          /* Show only recording interface when adding additional entry */
-          <View style={{ 
-            flex: 1,
-            backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f9fa',
-            justifyContent: 'center',
-            paddingHorizontal: 20
-          }}>
-            <RecorderSection
-              selectedCategory={selectedCategory || categories?.[0] || "Personal Growth"}
-              onRecordingComplete={(audioUri, transcription, category) => {
-                onRecordingComplete(audioUri, transcription, category);
-                setIsAddingAdditionalEntry(false); // Reset after recording
-              }}
-              isProcessing={isProcessing}
-              isDarkMode={isDarkMode}
-              categories={categories || []}
-              onCategorySelect={handleCategorySelect}
-              compact={false} // Use full size for better visibility
-              onAddImagePress={handleAddImage}
-              onCameraPress={() => setShowCamera(true)}
-              isAddingAdditionalEntry={isAddingAdditionalEntry}
-              onPrivacyChange={setPrivacyState}
-              initialPrivacy={privacyState}
-            />
-          </View>
+          /* Show full WelcomeScreen experience when adding additional entry */
+          <WelcomeScreen
+            user={user}
+            isDarkMode={isDarkMode}
+            categories={categories || []}
+            selectedCategory={selectedCategory || categories?.[0] || "Personal Growth"}
+            onCategorySelect={handleCategorySelect}
+            onRecordingComplete={(audioUri, transcription, category) => {
+              onRecordingComplete(audioUri, transcription, category);
+              setIsAddingAdditionalEntry(false); // Reset after recording
+            }}
+            onAddImagePress={handleAddImage}
+            onCameraPress={() => setShowCamera(true)}
+            isProcessing={isProcessing}
+            isFirstTime={false} // Not first time, but adding additional
+            isAddingAdditionalEntry={isAddingAdditionalEntry}
+            totalEntries={userStats.totalEntries}
+            currentStreak={userStats.currentStreak}
+            onPrivacyChange={setPrivacyState}
+            initialPrivacy={privacyState}
+          />
         ) : (
           /* Normal view: Social feed with optional recording section at top */
           <>
-            {/* Recording Section - Show when no entry today */}
-            {!todaysEntry && (
-              <View style={{ 
-                backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f9fa',
-                paddingVertical: 16,
-                paddingHorizontal: 20,
-                borderBottomWidth: 1,
-                borderBottomColor: isDarkMode ? '#333' : '#e0e0e0'
-              }}>
-                <RecorderSection
-                  selectedCategory={selectedCategory || categories?.[0] || "Personal Growth"}
-                  onRecordingComplete={(audioUri, transcription, category) => {
-                    onRecordingComplete(audioUri, transcription, category);
-                  }}
-                  isProcessing={isProcessing}
-                  isDarkMode={isDarkMode}
-                  categories={categories || []}
-                  onCategorySelect={handleCategorySelect}
-                  compact={true}
-                  onAddImagePress={handleAddImage}
-                  onCameraPress={() => setShowCamera(true)}
-                  isAddingAdditionalEntry={false}
-                  onPrivacyChange={setPrivacyState}
-                  initialPrivacy={privacyState}
-                />
-              </View>
-            )}
-            
-            {/* Social Feed - Takes remaining space */}
-            <View style={{ flex: 1 }}>
+            {!todaysEntry ? (
+              /* Show full WelcomeScreen for first-time users */
+              <WelcomeScreen
+                user={user}
+                isDarkMode={isDarkMode}
+                categories={categories || []}
+                selectedCategory={selectedCategory || categories?.[0] || "Personal Growth"}
+                onCategorySelect={handleCategorySelect}
+                onRecordingComplete={(audioUri, transcription, category) => {
+                  onRecordingComplete(audioUri, transcription, category);
+                }}
+                onAddImagePress={handleAddImage}
+                onCameraPress={() => setShowCamera(true)}
+                isProcessing={isProcessing}
+                isFirstTime={isFirstTime}
+                isAddingAdditionalEntry={false}
+                totalEntries={userStats.totalEntries}
+                currentStreak={userStats.currentStreak}
+                onPrivacyChange={setPrivacyState}
+                initialPrivacy={privacyState}
+              />
+            ) : (
+              /* Social Feed for users with today's entry */
               <SocialFeedScreen user={user} />
-            </View>
+            )}
           </>
         )}
       </View>
