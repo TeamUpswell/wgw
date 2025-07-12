@@ -21,6 +21,8 @@ import { resizeImage, AVATAR_OPTIONS } from "../utils/imageUtils";
 import { getFollowing, getFollowers } from "../services/followService";
 import { NotificationService } from "../services/notificationService";
 import { checkAvatarsBucket, testStoragePermissions, testAvatarPermissions } from "../utils/storageTest";
+import { SessionInfo } from "../components/SessionInfo";
+import { TwoTruthsAndALie } from "../components/TwoTruthsAndALie";
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -470,24 +472,19 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
           )}
           
           <Text style={styles.profileHandle}>@{profile?.username || "user"}</Text>
-          
-          {editing ? (
-            <TextInput
-              style={styles.bioInput}
-              value={form.bio || ""}
-              onChangeText={(v) => setForm({ ...form, bio: v })}
-              placeholder="Write something about yourself..."
-              placeholderTextColor={isDarkMode ? "#666" : "#999"}
-              multiline
-              maxLength={150}
-            />
-          ) : (
-            profile?.bio && (
-              <Text style={styles.profileBio}>{profile.bio}</Text>
-            )
-          )}
         </View>
       </View>
+
+      {/* Two Truths and a Lie */}
+      <TwoTruthsAndALie
+        userId={user.id}
+        isOwnProfile={isOwnProfile}
+        isDarkMode={isDarkMode}
+        initialData={profile?.truths_and_lie}
+        onSave={(data) => {
+          setProfile({ ...profile, truths_and_lie: data });
+        }}
+      />
 
       {/* Quick Stats */}
       <View style={styles.quickStats}>
@@ -668,24 +665,34 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const renderNotificationsTab = () => (
     <View style={styles.tabContent}>
-      {loadingNotifications ? (
-        <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color="#FF6B35" />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
-        </View>
-      ) : notifications.length > 0 ? (
-        <View style={styles.notificationsList}>
-          {notifications.map(renderNotificationItem)}
-        </View>
-      ) : (
-        <View style={styles.emptyState}>
-          <Ionicons name="notifications-outline" size={48} color={isDarkMode ? "#666" : "#999"} />
-          <Text style={styles.emptyStateText}>No notifications yet</Text>
-          <Text style={styles.emptyStateSubtext}>
-            You'll see your notifications here when friends interact with your entries
-          </Text>
-        </View>
-      )}
+      {/* Session Info Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Session Status</Text>
+        <SessionInfo isDarkMode={isDarkMode} showDebugInfo={false} />
+      </View>
+
+      {/* Notifications Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Recent Notifications</Text>
+        {loadingNotifications ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="large" color="#FF6B35" />
+            <Text style={styles.loadingText}>Loading notifications...</Text>
+          </View>
+        ) : notifications.length > 0 ? (
+          <View style={styles.notificationsList}>
+            {notifications.map(renderNotificationItem)}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="notifications-outline" size={48} color={isDarkMode ? "#666" : "#999"} />
+            <Text style={styles.emptyStateText}>No notifications yet</Text>
+            <Text style={styles.emptyStateSubtext}>
+              You'll see your notifications here when friends interact with your entries
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 

@@ -3,13 +3,17 @@ import { View, FlatList, ActivityIndicator, StyleSheet } from "react-native";
 import { fetchFeedEntries } from "../services/feedService"; // You will implement this
 import { FeedEntryCard } from "../components/FeedEntryCard"; // You will implement this
 
-export const FeedScreen = ({ navigation }) => {
-  const [entries, setEntries] = useState([]);
+interface FeedScreenProps {
+  navigation: any;
+}
+
+export const FeedScreen = ({ navigation }: FeedScreenProps) => {
+  const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Replace with your actual user ID or auth context
-    fetchFeedEntries(/* userId */).then((data) => {
+    fetchFeedEntries(/* userId */).then((data: any[]) => {
       setEntries(data);
       setLoading(false);
     });

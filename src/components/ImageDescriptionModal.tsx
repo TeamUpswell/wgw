@@ -20,7 +20,9 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
-import { transcribeAudio } from "../services/transcriptionService";
+import { AIService } from "../services/ai";
+
+const aiService = new AIService();
 
 interface ImageDescriptionModalProps {
   imageUri?: string;
@@ -133,7 +135,7 @@ export const ImageDescriptionModal: React.FC<ImageDescriptionModalProps> = ({
       if (uri) {
         setIsProcessing(true);
         try {
-          const text = await transcribeAudio(uri);
+          const text = await aiService.transcribeAudio(uri);
           setDescription((prev) => (prev ? `${prev} ${text}` : text));
         } catch (error) {
           console.error("Transcription failed:", error);

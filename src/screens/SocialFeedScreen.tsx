@@ -13,12 +13,14 @@ import {
   TextInput,
   Modal,
   Image,
+  FlatList,
 } from "react-native";
 import { FeedEntryCard } from "../components/FeedEntryCard";
 import { EditEntryScreen } from "./EditEntryScreen";
 import { supabase } from "../config/supabase";
 import { getFollowing } from "../services/followService";
 import { Ionicons } from "@expo/vector-icons";
+import { debounce } from "../utils/debounce";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -40,13 +42,16 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
   onClose,
   onNewEntry,
 }) => {
-  console.log("[SocialFeedScreen] component function called");
-  console.log("[SocialFeedScreen] user prop:", user);
-  
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [newEntryCount, setNewEntryCount] = useState(0);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE_SIZE = 10;
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,38 +80,67 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
 
     console.log("[SocialFeedScreen] Setting up real-time subscription");
     
-    // Subscribe to new entries
-    const channel = supabase
-      .channel('social_feed_updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'daily_entries',
-        },
-        (payload) => {
-          console.log('New entry detected:', payload.new);
-          handleNewEntry(payload.new);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'daily_entries',
-        },
-        (payload) => {
-          console.log('Entry updated:', payload.new);
-          handleEntryUpdate(payload.new);
-        }
-      )
-      .subscribe();
+    let channel: any = null;
+    let isSubscribed = true;
+    
+    // Debounced function to prevent too many updates
+    const debouncedHandleNewEntry = debounce((entry: any) => {
+      if (isSubscribed) {
+        handleNewEntry(entry);
+      }
+    }, 1000);
+    
+    const debouncedHandleUpdate = debounce((entry: any) => {
+      if (isSubscribed) {
+        handleEntryUpdate(entry);
+      }
+    }, 1000);
+    
+    // Get following list first to only subscribe to relevant users
+    getFollowing(user.id).then(({ data: followingData }) => {
+      if (!isSubscribed) return;
+      
+      const followingIds = followingData?.map((f: any) => f.followed_id) || [];
+      const relevantUserIds = [user.id, ...followingIds];
+      
+      // Subscribe only to entries from relevant users
+      channel = supabase
+        .channel(`social_feed_${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'daily_entries',
+            filter: `user_id=in.(${relevantUserIds.join(',')})`,
+          },
+          (payload) => {
+            console.log('New entry detected:', payload.new);
+            debouncedHandleNewEntry(payload.new);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'daily_entries',
+            filter: `user_id=in.(${relevantUserIds.join(',')})`,
+          },
+          (payload) => {
+            console.log('Entry updated:', payload.new);
+            debouncedHandleUpdate(payload.new);
+          }
+        )
+        .subscribe();
+    });
 
     return () => {
       console.log("[SocialFeedScreen] Cleaning up subscription");
-      supabase.removeChannel(channel);
+      isSubscribed = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [user?.id]);
 
@@ -193,72 +227,65 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
     ));
   };
 
-  const fetchFeed = async () => {
-    console.log("📊 [SocialFeedScreen] fetchFeed called, user:", user);
+  const fetchFeed = async (page: number = 0) => {
+    console.log("📊 [SocialFeedScreen] fetchFeed called, user:", user, "page:", page);
     if (!user?.id) {
       console.log("❌ [SocialFeedScreen] fetchFeed: No user.id, aborting");
       return;
     }
     
-    // Debounce: Don't fetch if we just fetched within the last 2 seconds
+    // Debounce: Don't fetch if we just fetched within the last 2 seconds (except for pagination)
     const now = Date.now();
-    if (now - lastFetchTime.current < 2000) {
+    if (page === 0 && now - lastFetchTime.current < 2000) {
       console.log("⏱️ [SocialFeedScreen] Debounced: Skipping fetch (too recent)");
       return;
     }
     lastFetchTime.current = now;
     
-    if (!refreshing) {
+    if (page === 0 && !refreshing) {
       setLoading(true);
+    } else if (page > 0) {
+      setLoadingMore(true);
     }
     
     try {
-      // Test: Check if user has ANY entries at all
-      const { data: userEntriesTest, error: testError } = await supabase
-        .from("daily_entries")
-        .select("id, created_at, transcription")
-        .eq("user_id", user.id);
-      
-      console.log("🧪 User entries test:", {
-        userEntriesCount: userEntriesTest?.length || 0,
-        userEntriesTest: userEntriesTest,
-        testError: testError
-      });
-      
       // 1. Get list of user IDs to show (self + following)
       const { data: followingData, error: followingError } = await getFollowing(
         user.id
       );
-      console.log("getFollowing:", { followingData, followingError });
+      
+      if (followingError) {
+        console.error("Error fetching following list:", followingError);
+      }
+      
       const followingIds = followingData?.map((f: any) => f.followed_id) || [];
       const userIds = [user.id, ...followingIds];
-      console.log("userIds for feed:", userIds);
       
-      // 2. Fetch entries for these users
-      console.log("🔍 SocialFeed fetching entries for userIds:", userIds);
-      console.log("🔍 Current user ID:", user.id);
-      
-      // Try a simpler query first - just get user's own entries
-      const { data: userOnlyEntries, error: userOnlyError } = await supabase
-        .from("daily_entries")
-        .select("*, user:users(id, email, username, display_name, avatar_url, bio)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(5); // Reduced from 10 to 5 for debugging only
-      
-      console.log("🔍 User-only entries query:", {
-        count: userOnlyEntries?.length || 0,
-        entries: userOnlyEntries,
-        error: userOnlyError
-      });
-      
+      // 2. Optimized query - fetch only necessary fields
       const { data: entriesData, error } = await supabase
         .from("daily_entries")
-        .select("*, user:users(id, email, username, display_name, avatar_url, bio)")
+        .select(`
+          id,
+          user_id,
+          category,
+          transcription,
+          ai_response,
+          image_url,
+          audio_url,
+          is_private,
+          favorite,
+          created_at,
+          user:users!inner(
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
         .in("user_id", userIds)
         .or(`is_private.eq.false,user_id.eq.${user.id}`) // Show public entries OR user's own private entries
         .order("created_at", { ascending: false })
-        .limit(20); // Reduced from 50 to 20 for better performance
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
         
       console.log("📊 SocialFeed query results:", {
         entriesCount: entriesData?.length || 0,
@@ -268,49 +295,46 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
       
       if (error) {
         console.error("❌ SocialFeed query error:", error);
-        setEntries([]);
+        Alert.alert(
+          "Error Loading Feed",
+          "Unable to load social feed. Please try again later.",
+          [{ text: "OK" }]
+        );
+        if (page === 0) setEntries([]);
+        throw error;
       } else {
-        console.log("✅ SocialFeed raw results:", {
-          totalEntries: entriesData?.length || 0,
-          firstEntryId: entriesData?.[0]?.id,
-          allEntryIds: entriesData?.map(e => e.id),
-          firstEntryUser: entriesData?.[0]?.user
-        });
-        
         // Attach username to each entry for FeedEntryCard
-        const withUserInfo = entriesData.map((entry: any) => {
-          console.log('🔍 SocialFeed entry:', {
-            id: entry.id,
-            image_url: entry.image_url,
-            transcription: entry.transcription?.substring(0, 30) + '...',
-            created_at: entry.created_at,
-            user: entry.user
-          });
-          return {
-            ...entry,
-            username: entry.user?.username || entry.user?.email || 'Unknown User',
-            display_name: entry.user?.display_name || entry.user?.email || 'Unknown User',
-            avatar_url: entry.user?.avatar_url,
-            bio: entry.user?.bio,
-          };
-        });
+        const withUserInfo = entriesData.map((entry: any) => ({
+          ...entry,
+          username: entry.user?.username || 'Unknown User',
+          display_name: entry.user?.display_name || entry.user?.username || 'Unknown User',
+          avatar_url: entry.user?.avatar_url,
+        }));
         
-        console.log("🎯 Final processed entries being set:", {
-          count: withUserInfo.length,
-          firstProcessedEntry: withUserInfo[0],
-          allProcessedIds: withUserInfo.map(e => e.id)
-        });
+        // Set entries based on whether it's initial load or pagination
+        if (page === 0) {
+          setEntries(withUserInfo);
+        } else {
+          setEntries(prev => [...prev, ...withUserInfo]);
+        }
+        
+        // Update hasMore based on results
+        setHasMore(withUserInfo.length === PAGE_SIZE);
         
         // Animate entries in
-        setEntries(withUserInfo);
         animateEntriesIn(withUserInfo.length);
       }
     } catch (err) {
       console.error("SocialFeedScreen fetchFeed error:", err);
-      setEntries([]);
+      if (page === 0 && !entries.length) {
+        // Only clear entries if it's the first page and we have no data
+        setEntries([]);
+      }
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+      setRefreshing(false);
     }
-    
-    setLoading(false);
   };
 
   const animateEntriesIn = (count: number) => {
@@ -329,8 +353,17 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchFeed();
-    setRefreshing(false);
+    setCurrentPage(0);
+    setHasMore(true);
+    await fetchFeed(0);
+  };
+  
+  const loadMore = async () => {
+    if (!hasMore || loadingMore || loading) return;
+    
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    await fetchFeed(nextPage);
   };
 
   // Filter entries based on search, date, and category
@@ -663,7 +696,9 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
             style={{ marginTop: 40 }}
           />
         ) : (
-          <ScrollView
+          <FlatList
+            data={getFilteredEntries()}
+            keyExtractor={(item) => item.id}
             refreshControl={
               <RefreshControl 
                 refreshing={refreshing} 
@@ -673,8 +708,26 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
               />
             }
             showsVerticalScrollIndicator={false}
-          >
-            {entries.length === 0 ? (
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={() => {
+              if (loadingMore) {
+                return (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="#8BC34A" />
+                  </View>
+                );
+              }
+              if (!hasMore && entries.length > 0) {
+                return (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: '#999' }}>No more entries</Text>
+                  </View>
+                );
+              }
+              return null;
+            }}
+            ListEmptyComponent={() => (
               <Animated.View
                 style={[
                   styles.emptyContainer,
@@ -695,7 +748,7 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
                   }}
                   onPress={() => {
                     console.log("🔄 Manual refresh button pressed");
-                    fetchFeed();
+                    fetchFeed(0);
                   }}
                 >
                   <Text style={{color: 'white', textAlign: 'center', fontWeight: '600'}}>
@@ -703,48 +756,46 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
                   </Text>
                 </TouchableOpacity>
               </Animated.View>
-            ) : (
-              getFilteredEntries().map((entry, index) => (
-                <Animated.View
-                  key={entry.id}
-                  style={{
-                    opacity: fadeAnim,
-                    transform: [
-                      {
-                        translateY: fadeAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [30, 0],
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  <FeedEntryCard 
-                    entry={entry} 
-                    navigation={null}
-                    currentUserId={user.id}
-                    onPrivacyToggle={handlePrivacyToggle}
-                    onEdit={handleEdit}
-                    onAvatarPress={() => handleAvatarPress(entry)}
-                    style={{
-                      marginHorizontal: 16,
-                      marginVertical: 8,
-                      borderRadius: 12,
-                      backgroundColor: '#fff',
-                      shadowColor: '#000',
-                      shadowOffset: {
-                        width: 0,
-                        height: 2,
-                      },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                      elevation: 3,
-                    }}
-                  />
-                </Animated.View>
-              ))
             )}
-          </ScrollView>
+            renderItem={({ item, index }) => (
+              <Animated.View
+                style={{
+                  opacity: fadeAnim,
+                  transform: [
+                    {
+                      translateY: fadeAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [30, 0],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <FeedEntryCard 
+                  entry={item} 
+                  navigation={null}
+                  currentUserId={user.id}
+                  onPrivacyToggle={handlePrivacyToggle}
+                  onEdit={handleEdit}
+                  onAvatarPress={() => handleAvatarPress(item)}
+                  style={{
+                    marginHorizontal: 16,
+                    marginVertical: 8,
+                    borderRadius: 12,
+                    backgroundColor: '#fff',
+                    shadowColor: '#000',
+                    shadowOffset: {
+                      width: 0,
+                      height: 2,
+                    },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }}
+                />
+              </Animated.View>
+            )}
+          />
         )}
 
         {/* User Profile Modal */}

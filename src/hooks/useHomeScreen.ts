@@ -7,6 +7,10 @@ import { anthropic } from "../config/anthropic";
 import { NotificationModal } from "../components/NotificationModal";
 import { AIService } from "../services/ai";
 import { getAIResponse } from "../services/aiService";
+import { addPendingAction } from "../store/slices/offlineSlice";
+import { addEntry } from "../store/slices/entriesSlice";
+import { store } from "../store";
+import { useDispatch } from "react-redux";
 
 import { resizeImage, DEFAULT_IMAGE_OPTIONS } from "../utils/imageUtils";
 
@@ -286,6 +290,8 @@ Be a supportive wellness coach who sees the deeper meaning in both their words a
 };
 
 export const useHomeScreen = (user: any, isDarkMode: boolean) => {
+  const dispatch = useDispatch();
+  
   // ✅ Local state management (no Redux)
   const [entries, setEntries] = useState<any[]>([]);
   const [streak, setStreak] = useState({
@@ -326,23 +332,23 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
     if (!entries || entries.length === 0) return [];
 
     const today = new Date();
-    // Use local date string instead of UTC
-    const todayStr = today.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local time
+    // Get start and end of today in local time
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
     console.log("📅 Computing todaysEntries:", {
       entriesCount: entries.length,
-      todayStr,
-      localTime: today.toLocaleString(),
+      todayStart: startOfToday.toLocaleString(),
+      todayEnd: endOfToday.toLocaleString(),
+      currentTime: today.toLocaleString(),
     });
 
     const filtered = entries.filter((entry) => {
       if (!entry.created_at) return false;
       
       const entryDate = new Date(entry.created_at);
-      // Convert to local date string
-      const entryDateStr = entryDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local time
-      
-      const isToday = entryDateStr === todayStr;
+      // Check if the entry date falls within today's boundaries
+      const isToday = entryDate >= startOfToday && entryDate < endOfToday;
       
       if (isToday) {
         console.log("📅 Found today's entry:", {
@@ -736,7 +742,64 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
     category: string,
     audioUri?: string
   ) => {
+    const state = store.getState();
+    const isOnline = state.offline.isOnline;
+    
+    // If offline, queue the action for later
+    if (!isOnline) {
+      console.log('📱 Offline mode: Queueing entry creation');
+      
+      // Create a temporary entry for immediate UI feedback
+      const tempEntry = {
+        id: `temp_${Date.now()}`,
+        user_id: userId,
+        transcription,
+        ai_response: aiResponse,
+        category,
+        audio_url: audioUri,
+        created_at: new Date().toISOString(),
+        is_synced: false, // Mark as not synced
+      };
+      
+      // Add to offline queue
+      dispatch(addPendingAction({
+        type: 'CREATE_ENTRY',
+        payload: {
+          audioUri,
+          transcription,
+          category,
+          userId,
+          localId: tempEntry.id,
+        },
+      }));
+      
+      // Add to local state immediately
+      dispatch(addEntry(tempEntry));
+      
+      // Show offline notification
+      Alert.alert(
+        "Saved Offline",
+        "Your entry has been saved and will sync when you're back online.",
+        [{ text: "OK" }]
+      );
+      
+      return tempEntry;
+    }
+    
+    // Online mode - proceed as normal
     try {
+      let audioUrl = null;
+      
+      // Upload audio file if provided
+      if (audioUri) {
+        const { uploadAudioToSupabase } = await import('../utils/audioUpload');
+        audioUrl = await uploadAudioToSupabase(audioUri, userId);
+        
+        if (!audioUrl) {
+          console.warn('⚠️ Audio upload failed, continuing without audio URL');
+        }
+      }
+      
       const { data, error } = await supabase
         .from("daily_entries")
         .insert([
@@ -745,7 +808,7 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
             transcription,
             ai_response: aiResponse,
             category,
-            audio_url: audioUri,
+            audio_url: audioUrl, // Use uploaded URL instead of local URI
             created_at: new Date().toISOString(), // Ensure consistent timestamp
           },
         ])
@@ -758,6 +821,44 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
       return data;
     } catch (error) {
       console.error("❌ Error creating entry:", error);
+      
+      // If online but failed, also queue for retry
+      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        console.log('📱 Network error: Queueing for retry');
+        
+        const tempEntry = {
+          id: `temp_${Date.now()}`,
+          user_id: userId,
+          transcription,
+          ai_response: aiResponse,
+          category,
+          audio_url: audioUri,
+          created_at: new Date().toISOString(),
+          is_synced: false,
+        };
+        
+        dispatch(addPendingAction({
+          type: 'CREATE_ENTRY',
+          payload: {
+            audioUri,
+            transcription,
+            category,
+            userId,
+            localId: tempEntry.id,
+          },
+        }));
+        
+        dispatch(addEntry(tempEntry));
+        
+        Alert.alert(
+          "Saved for Later",
+          "We couldn't save your entry right now, but it will sync automatically.",
+          [{ text: "OK" }]
+        );
+        
+        return tempEntry;
+      }
+      
       throw error;
     }
   };
@@ -909,50 +1010,4 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
       processingStage,
     ]
   );
-};
-
-// Exported transcription function for use in modal and elsewhere
-export const transcribeAudio = async (audioUri: string): Promise<string> => {
-  try {
-    console.log("🎤 Preparing audio for transcription...");
-
-    // Create form data for the audio file
-    const formData = new FormData();
-    formData.append("file", {
-      uri: audioUri,
-      type: "audio/m4a",
-      name: "recording.m4a",
-    } as any);
-    formData.append("model", "whisper-1");
-    formData.append("language", "en");
-
-    // Call OpenAI Whisper API
-    const response = await fetch(
-      "https://api.openai.com/v1/audio/transcriptions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
-        },
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        `Transcription failed: ${
-          errorData.error?.message || response.statusText
-        }`
-      );
-    }
-
-    const result = await response.json();
-    return result.text || "Could not transcribe audio.";
-  } catch (error) {
-    console.error("❌ Transcription error:", error);
-    throw new Error(
-      "Failed to transcribe audio. Please check your connection and try again."
-    );
-  }
 };

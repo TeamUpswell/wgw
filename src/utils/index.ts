@@ -54,8 +54,13 @@ export const calculateStreak = (
 export const isToday = (date: string): boolean => {
   const today = new Date();
   const checkDate = new Date(date);
-
-  return today.toDateString() === checkDate.toDateString();
+  
+  // Get start and end of today in local time
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  
+  // Check if the date falls within today's boundaries
+  return checkDate >= startOfToday && checkDate < endOfToday;
 };
 
 export const getDaysAgo = (date: string): number => {

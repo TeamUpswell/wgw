@@ -7,10 +7,12 @@ import {
   Alert,
   Animated,
   Platform,
+  Linking,
 } from "react-native";
 import * as FileSystem from "expo-file-system";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { Audio } from "expo-av";
 
 // Update the interface to match what HomeScreen is passing:
 
@@ -37,7 +39,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 }) => {
   const [recording, setRecording] = useState<Audio.Recording>();
   const [isRecording, setIsRecording] = useState(false);
-  const [duration, setDuration] = useState(0);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [recordingTime, setRecordingTime] = useState(0);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
@@ -47,7 +48,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const maxDuration = 60;
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const durationInterval = useRef<NodeJS.Timeout>();
 
   // Fix the formatTime function to handle the timer display properly
   const formatTime = (milliseconds: number): string => {
@@ -125,45 +125,73 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
     try {
       console.log("Requesting permissions..");
+      
+      // Check and request permissions
       if (permissionResponse?.status !== "granted") {
         console.log("Requesting permission..");
-        await requestPermission();
+        const { status } = await requestPermission();
+        
+        if (status !== "granted") {
+          Alert.alert(
+            "Permission Required",
+            "Microphone access is required to record audio. Please enable it in your device settings.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Open Settings", onPress: () => Linking.openSettings() }
+            ]
+          );
+          return;
+        }
       }
 
+      // Configure audio session
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
       });
 
       console.log("Starting recording..");
-      const { recording } = await Audio.Recording.createAsync(
+      
+      // Create recording with error handling
+      const { recording, status } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
+      
+      if (status?.canRecord === false) {
+        throw new Error("Unable to record - check microphone availability");
+      }
 
       setRecording(recording);
       setIsRecording(true);
       setRecordingTime(0); // Reset timer
       startPulseAnimation();
 
-      // Start duration counter
-      durationInterval.current = setInterval(() => {
-        setDuration((prev) => {
-          const newDuration = prev + 1;
-          if (newDuration >= maxDuration) {
-            stopRecording();
-            return maxDuration;
-          }
-          return newDuration;
-        });
-      }, 1000);
+      // Duration tracking is already handled by recordingTime state in useEffect
 
-      console.log("Recording started");
-    } catch (err) {
+      console.log("✅ Recording started successfully");
+      
+      // Notify parent about recording start
+      onProcessingChange(true);
+      
+    } catch (err: any) {
       console.error("Failed to start recording", err);
-      Alert.alert(
-        "Error",
-        "Failed to start recording. Please check microphone permissions."
-      );
+      onProcessingChange(false);
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to start recording.";
+      
+      if (err.message?.includes("permission")) {
+        errorMessage = "Microphone permission denied. Please enable it in settings.";
+      } else if (err.message?.includes("microphone")) {
+        errorMessage = "Microphone is not available. Please check if another app is using it.";
+      } else if (err.code === "E_AUDIO_RECORDING_FAILED") {
+        errorMessage = "Recording failed. Please try again.";
+      }
+      
+      Alert.alert("Recording Error", errorMessage);
     }
   };
 
@@ -177,9 +205,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     setIsRecording(false);
     stopPulseAnimation();
 
-    if (durationInterval.current) {
-      clearInterval(durationInterval.current);
-    }
+    // Timer cleanup is handled by useEffect
 
     if (!recording) {
       console.log("❌ No recording to stop");
@@ -196,17 +222,50 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       console.log("✅ Recording stopped and stored at:", uri);
 
       if (uri) {
-        console.log("📤 Calling onTranscriptionComplete with URI:", uri);
+        // Verify the file exists before processing
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        
+        if (!fileInfo.exists) {
+          throw new Error("Recording file not found");
+        }
+        
+        // Check file size
+        if (fileInfo.size === 0) {
+          throw new Error("Recording file is empty");
+        }
+        
+        console.log("📤 Calling onTranscriptionComplete with URI:", uri, "Size:", fileInfo.size);
         onTranscriptionComplete(uri); // This should call the parent function
       } else {
-        console.error("❌ No URI returned from recording");
+        throw new Error("No recording URI available");
       }
 
       setRecording(undefined);
       setRecordingTime(0);
-    } catch (error) {
+      
+      // Notify parent that processing can continue
+      onProcessingChange(false);
+      
+    } catch (error: any) {
       console.error("❌ Error stopping recording:", error);
-      Alert.alert("Error", "Failed to stop recording");
+      onProcessingChange(false);
+      
+      // Provide specific error messages
+      let errorMessage = "Failed to stop recording.";
+      
+      if (error.message?.includes("file not found")) {
+        errorMessage = "Recording was not saved properly. Please try again.";
+      } else if (error.message?.includes("empty")) {
+        errorMessage = "Recording is too short. Please record for at least 1 second.";
+      } else if (error.message?.includes("URI")) {
+        errorMessage = "Failed to save recording. Please check storage permissions.";
+      }
+      
+      Alert.alert("Recording Error", errorMessage);
+      
+      // Clean up state
+      setRecording(undefined);
+      setRecordingTime(0);
     }
   };
 

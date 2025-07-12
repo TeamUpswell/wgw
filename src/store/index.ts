@@ -14,17 +14,19 @@ import { combineReducers } from "@reduxjs/toolkit";
 import authSlice from "./authSlice";
 import entriesSlice from "./slices/entriesSlice";
 import streakSlice from "./slices/streakSlice";
+import offlineSlice from "./slices/offlineSlice";
 
 const persistConfig = {
   key: "root",
   storage: AsyncStorage,
-  whitelist: ["auth", "entries"], // Only persist auth and entries
+  whitelist: ["auth", "entries", "offline"], // Persist auth, entries, and offline queue
 };
 
 const rootReducer = combineReducers({
   auth: authSlice,
   entries: entriesSlice,
   streak: streakSlice, // Make sure this line exists
+  offline: offlineSlice,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

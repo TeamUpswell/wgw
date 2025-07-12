@@ -6,13 +6,18 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
     "@expo/metro-runtime": "~5.0.4",
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/datetimepicker": "^8.4.1",
+    "@react-native-community/netinfo": "^11.4.1",
     "@react-native-picker/picker": "^2.11.1",
     "@reduxjs/toolkit": "^2.8.2",
     "@supabase/supabase-js": "^2.50.3",
@@ -22,6 +27,7 @@
     "expo-audio": "^0.4.8",
     "expo-av": "~15.1.7",
     "expo-camera": "~16.1.10",
+    "expo-clipboard": "~7.1.5",
     "expo-dev-client": "^5.2.4",
     "expo-device": "~7.1.4",
     "expo-file-system": "^18.1.11",
@@ -52,8 +58,14 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@react-native-community/cli": "^19.1.0",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.2.0",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.0.10",
     "@types/react-native-dotenv": "^0.2.2",
+    "jest": "^30.0.4",
+    "jest-environment-jsdom": "^30.0.4",
+    "react-test-renderer": "^19.0.0",
     "typescript": "~5.8.3"
   },
   "private": true

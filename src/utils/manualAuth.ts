@@ -1,5 +1,6 @@
 // Manual Auth Implementation - Bypass Supabase Auth signup issues
 import { supabase } from '../config/supabase';
+import { ensureUserProfile } from '../services/userProfileService';
 
 export const manualSignup = async (email: string, password: string) => {
   try {
@@ -25,20 +26,15 @@ export const manualSignup = async (email: string, password: string) => {
     
     console.log('✅ Auth signup successful:', authData.user.id);
     
-    // Manual user profile creation (this should work since DB is ready)
-    const { error: profileError } = await supabase
-      .from('users')
-      .insert({
-        id: authData.user.id,
-        email: authData.user.email,
-        subscription_tier: 'free',
-      });
+    // Use centralized profile creation service to handle race conditions
+    const { error: profileError } = await ensureUserProfile(
+      authData.user.id,
+      authData.user.email || ''
+    );
     
-    if (profileError && profileError.code !== '23505') {
-      console.error('❌ Profile creation failed:', profileError);
-      // Don't throw here - user is created in auth, just profile failed
-    } else {
-      console.log('✅ User profile created successfully');
+    if (profileError) {
+      console.error('⚠️ Profile creation had issues:', profileError);
+      // Don't throw here - user is created in auth, profile might exist from trigger
     }
     
     return { data: authData, error: null };

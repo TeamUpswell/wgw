@@ -1,17 +1,28 @@
-import React, { useEffect, useState } from "react";
-import { SafeAreaView, StatusBar, View, Text } from "react-native";
-import { Provider } from "react-redux";
+import React, { useEffect, useRef } from "react";
+import { SafeAreaView, StatusBar, View, Text, AppState } from "react-native";
+import { Provider, useDispatch, useSelector } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { store, persistor } from "./src/store";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { supabase } from "./src/config/supabase";
-import type { User } from "@supabase/supabase-js";
+import { setUser, setLoading, clearAuth } from "./src/store/authSlice";
+import { ensureUserProfile } from "./src/services/userProfileService";
+import { sessionManager } from "./src/services/sessionService";
+import { AppProvider } from "./src/contexts/AppContext";
+import { ErrorBoundary } from "./src/components/ErrorBoundary";
+import { useTheme } from "./src/contexts/ThemeContext";
+import { useLoading } from "./src/contexts/LoadingContext";
+import { networkService } from "./src/services/networkService";
+import type { RootState } from "./src/store";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 function AppContent() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(true); // <-- Default to true for dark mode
+  const dispatch = useDispatch();
+  const { user } = useSelector((state: RootState) => state.auth);
+  const { isDarkMode, toggleTheme } = useTheme();
+  const { isLoading } = useLoading();
+  const appState = useRef(AppState.currentState);
 
   useEffect(() => {
     console.log("🔍 Supabase client check:", {
@@ -22,10 +33,13 @@ function AppContent() {
         : "None",
     });
 
+    // Initialize network service
+    networkService.initialize().catch(console.error);
+
     // Check if supabase and auth are properly initialized
     if (!supabase || !supabase.auth) {
       console.error("❌ Supabase client not properly initialized");
-      setIsLoading(false);
+      dispatch(setLoading(false));
       return;
     }
 
@@ -60,16 +74,32 @@ function AppContent() {
             "✅ Initial user check:",
             `Logged in as ${currentUser.email}`
           );
-          setUser(currentUser);
+          
+          // Ensure user profile exists
+          await ensureUserProfile(currentUser.id, currentUser.email || '');
+          
+          // Map Supabase user to our User type
+          const mappedUser = {
+            id: currentUser.id,
+            email: currentUser.email || '',
+            created_at: currentUser.created_at || new Date().toISOString(),
+          };
+          dispatch(setUser(mappedUser));
+          
+          // Start session monitoring for logged-in users
+          sessionManager.startSessionMonitoring();
         } else {
           console.log("📝 No user session found");
-          setUser(null);
+          dispatch(clearAuth());
+          
+          // Stop session monitoring when no user
+          sessionManager.stopSessionMonitoring();
         }
       } catch (error) {
         console.error("❌ Error checking user:", error);
-        setUser(null);
+        dispatch(clearAuth());
       } finally {
-        setIsLoading(false);
+        dispatch(setLoading(false));
       }
     };
 
@@ -86,31 +116,68 @@ function AppContent() {
       );
 
       if (session?.user) {
-        setUser(session.user);
+        // Ensure user profile exists
+        await ensureUserProfile(session.user.id, session.user.email || '');
+        
+        // Map Supabase user to our User type
+        const mappedUser = {
+          id: session.user.id,
+          email: session.user.email || '',
+          created_at: session.user.created_at || new Date().toISOString(),
+        };
+        dispatch(setUser(mappedUser));
+        
+        // Restart session monitoring on auth state change
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          sessionManager.startSessionMonitoring();
+        }
       } else {
-        setUser(null);
+        dispatch(clearAuth());
+        
+        // Stop monitoring on sign out
+        if (event === 'SIGNED_OUT') {
+          sessionManager.stopSessionMonitoring();
+        }
       }
 
-      setIsLoading(false);
+      // Loading is handled by context now
+    });
+
+    // Handle app state changes (background/foreground)
+    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        console.log('🔄 App came to foreground - checking session...');
+        if (user) {
+          sessionManager.checkAndRefreshSession();
+        }
+      } else if (appState.current === 'active' && nextAppState.match(/inactive|background/)) {
+        console.log('📱 App went to background');
+      }
+      appState.current = nextAppState;
     });
 
     return () => {
       subscription?.unsubscribe();
+      sessionManager.stopSessionMonitoring();
+      appStateSubscription.remove();
     };
   }, []);
 
   const handleLogout = async () => {
-    try {
-      console.log("🔐 Logging out...");
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      console.log("✅ Logged out successfully");
-    } catch (error) {
-      console.error("❌ Logout error:", error);
-    }
+    await withLoading('auth', async () => {
+      try {
+        console.log("🔐 Logging out...");
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        dispatch(clearAuth());
+        console.log("✅ Logged out successfully");
+      } catch (error) {
+        console.error("❌ Logout error:", error);
+      }
+    });
   };
 
-  if (isLoading) {
+  if (isLoading('auth')) {
     return (
       <View
         style={{
@@ -139,7 +206,7 @@ function AppContent() {
         <HomeScreen
           user={user}
           isDarkMode={isDarkMode}
-          onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+          onToggleDarkMode={toggleTheme}
           onLogout={handleLogout}
         />
       ) : (
@@ -153,7 +220,11 @@ export default function App() {
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
-        <AppContent />
+        <ErrorBoundary>
+          <AppProvider>
+            <AppContent />
+          </AppProvider>
+        </ErrorBoundary>
       </PersistGate>
     </Provider>
   );

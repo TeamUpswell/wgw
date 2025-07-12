@@ -20,14 +20,10 @@ import { Audio } from "expo-av";
 
 // Import supabase client
 import { resizeImage, DEFAULT_IMAGE_OPTIONS } from "../utils/imageUtils";
-import { createClient } from "@supabase/supabase-js";
-import { transcribeAudio } from "../services/transcriptionService";
+import { supabase } from "../config/supabase";
+import { AIService } from "../services/ai";
 
-// Initialize client using environment variables
-const supabase = createClient(
-  process.env.EXPO_PUBLIC_SUPABASE_URL!,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
-);
+const aiService = new AIService();
 
 const RECORDING_LIMIT_SECONDS = 30;
 
@@ -171,7 +167,7 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
         console.log("🎤 Starting transcription process...");
         try {
           // Transcribe the audio
-          const transcription = await transcribeAudio(uri);
+          const transcription = await aiService.transcribeAudio(uri);
           console.log("✅ Transcription completed:", transcription.substring(0, 50) + "...");
           console.log("📞 Calling onRecordingComplete with:", { uri, transcription, category: selectedCategory });
           onRecordingComplete(uri, transcription, selectedCategory);

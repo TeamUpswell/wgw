@@ -8,17 +8,17 @@ import {
   ScrollView,
   Share,
   Alert,
-  Clipboard, // Add this import
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { DailyEntry } from "../types";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 
 interface TodaysEntriesProps {
   entries: DailyEntry[];
   isDarkMode: boolean;
   onEntryPress?: (entry: DailyEntry) => void;
-  onEntryDeleted?: (entryId: number) => void;
+  onEntryDeleted?: (entryId: string) => void;
 }
 
 export const TodaysEntries: React.FC<TodaysEntriesProps> = ({

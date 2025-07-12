@@ -14,6 +14,7 @@ import {
   Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// import * as Clipboard from 'expo-clipboard'; // Commented out due to native module issue
 import { 
   createOrGetUserCode, 
   sendFollowRequest, 
@@ -180,9 +181,31 @@ export const UserCodeModal: React.FC<UserCodeModalProps> = ({
             <Text style={styles.codeText}>{userCode || 'Loading...'}</Text>
             <TouchableOpacity
               style={styles.copyButton}
-              onPress={() => {
+              onPress={async () => {
                 if (userCode) {
-                  Alert.alert('Copy Code', `Your code is: ${userCode}\n\nLong press to select and copy this code.`);
+                  try {
+                    // Try expo-clipboard first (when available)
+                    // await Clipboard.setStringAsync(userCode);
+                    
+                    // Fallback: Show share sheet which allows copying
+                    await Share.share({
+                      message: userCode,
+                      title: 'Your Invite Code',
+                    });
+                  } catch (error) {
+                    // Final fallback: Show code in alert for manual copying
+                    Alert.alert(
+                      'Your Invite Code', 
+                      userCode,
+                      [
+                        { text: 'OK' },
+                        { 
+                          text: 'Share', 
+                          onPress: () => Share.share({ message: userCode })
+                        }
+                      ]
+                    );
+                  }
                 }
               }}
             >

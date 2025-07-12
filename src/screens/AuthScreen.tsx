@@ -13,6 +13,8 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useDispatch } from "react-redux";
+import { setUser, setLoading as setAuthLoading } from "../store/authSlice";
 // Use pure React Native View instead of LinearGradient for better compatibility
 const GradientView = ({ children, style, colors, ...props }: any) => {
   const backgroundColor = colors && colors[0] ? colors[0] : '#FF6B35';
@@ -26,6 +28,7 @@ import { supabase } from "../config/supabase";
 import { manualSignup } from "../utils/manualAuth";
 import { testSupabaseConnection } from "../utils/testConnection";
 import { verifyConnection } from "../utils/verifyConnection";
+import { ensureUserProfile } from "../services/userProfileService";
 
 const { width, height } = Dimensions.get('window');
 
@@ -34,6 +37,7 @@ interface AuthScreenProps {
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) => {
+  const dispatch = useDispatch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -78,6 +82,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
 
   const handleSignUp = async () => {
     if (!validateForm()) return;
+    
+    // Additional password strength check for signup
+    if (passwordStrength && passwordStrength.score < 2) {
+      Alert.alert(
+        "Weak Password",
+        "Please choose a stronger password. Your password should have a mix of uppercase, lowercase, numbers, and be at least 8 characters long.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -105,40 +119,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
         if (authData.session) {
           console.log("✅ User automatically signed in");
           
-          // Create user profile manually (trigger-free approach)
-          try {
-            const { error: profileError } = await supabase
-              .from("users")
-              .insert({
-                id: authData.user.id,
-                email: authData.user.email,
-                subscription_tier: "free",
-              });
-
-            if (profileError) {
-              console.error("❌ Profile creation error:", profileError);
-              console.error("Error details:", {
-                code: profileError.code,
-                message: profileError.message,
-                details: profileError.details,
-                hint: profileError.hint
-              });
-              
-              // Only show error if it's not a duplicate key error
-              if (profileError.code !== "23505") {
-                Alert.alert(
-                  "Profile Error", 
-                  `Failed to create user profile: ${profileError.message}`
-                );
-              } else {
-                console.log("ℹ️ User profile already exists (duplicate key)");
-              }
-            } else {
-              console.log("✅ User profile created successfully");
-            }
-          } catch (profileErr) {
-            console.error("❌ Profile creation exception:", profileErr);
-          }
+          // Update Redux store with user data
+          const mappedUser = {
+            id: authData.user.id,
+            email: authData.user.email || '',
+            created_at: authData.user.created_at || new Date().toISOString(),
+          };
+          dispatch(setUser(mappedUser));
+          
+          // Ensure user profile exists (handles race conditions gracefully)
+          await ensureUserProfile(authData.user.id, authData.user.email || '');
 
           Alert.alert("Welcome!", "Account created successfully!");
         } else {
@@ -171,6 +161,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
       if (error) throw error;
 
       console.log("✅ Signed in successfully:", data.user?.email);
+      
+      // Update Redux store with user data
+      if (data.user) {
+        const mappedUser = {
+          id: data.user.id,
+          email: data.user.email || '',
+          created_at: data.user.created_at || new Date().toISOString(),
+        };
+        dispatch(setUser(mappedUser));
+        
+        // Ensure user profile exists (in case trigger failed)
+        await ensureUserProfile(data.user.id, data.user.email || '');
+      }
       // No need for success alert - user will see the app
     } catch (error: any) {
       console.error("❌ Signin error:", error);
@@ -270,35 +273,73 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
             </View>
 
             {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIcon}>
-                <Ionicons 
-                  name="lock-closed" 
-                  size={20} 
-                  color={isDarkMode ? "#888" : "#666"} 
+            <View>
+              <View style={styles.inputContainer}>
+                <View style={styles.inputIcon}>
+                  <Ionicons 
+                    name="lock-closed" 
+                    size={20} 
+                    color={isDarkMode ? "#888" : "#666"} 
+                  />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor={isDarkMode ? "#666" : "#999"}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (isSignUp && text.length > 0) {
+                      setShowPasswordStrength(true);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (isSignUp && password.length === 0) {
+                      setShowPasswordStrength(false);
+                    }
+                  }}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
                 />
+                <TouchableOpacity
+                  style={styles.passwordToggle}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-off" : "eye"} 
+                    size={20} 
+                    color={isDarkMode ? "#888" : "#666"} 
+                  />
+                </TouchableOpacity>
               </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor={isDarkMode ? "#666" : "#999"}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-              <TouchableOpacity
-                style={styles.passwordToggle}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons 
-                  name={showPassword ? "eye-off" : "eye"} 
-                  size={20} 
-                  color={isDarkMode ? "#888" : "#666"} 
+              
+              {/* Password Strength Indicator for Sign Up */}
+              {isSignUp && showPasswordStrength && (
+                <PasswordStrengthIndicator
+                  password={password}
+                  isDarkMode={isDarkMode}
+                  showRequirements={true}
+                  onStrengthChange={setPasswordStrength}
                 />
-              </TouchableOpacity>
+              )}
+              
+              {/* Password Suggestion Button */}
+              {isSignUp && password.length === 0 && (
+                <TouchableOpacity
+                  style={styles.suggestionButton}
+                  onPress={() => {
+                    const suggestion = generatePasswordSuggestion();
+                    setPassword(suggestion);
+                    setShowPassword(true);
+                    setShowPasswordStrength(true);
+                  }}
+                >
+                  <Ionicons name="bulb-outline" size={16} color="#FF6B35" />
+                  <Text style={styles.suggestionText}>Suggest strong password</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Confirm Password Input (Sign Up Only) */}
@@ -325,20 +366,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
               </View>
             )}
 
-            {/* Password Requirements (Sign Up Only) */}
-            {isSignUp && (
-              <View style={styles.passwordHints}>
-                <Text style={styles.hintText}>
-                  Password must be at least 6 characters
-                </Text>
-              </View>
-            )}
 
             {/* Action Button */}
             <TouchableOpacity
-              style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+              style={[
+                styles.primaryButton, 
+                (isLoading || (isSignUp && passwordStrength && passwordStrength.score < 2)) && styles.buttonDisabled
+              ]}
               onPress={isSignUp ? handleSignUp : handleSignIn}
-              disabled={isLoading}
+              disabled={isLoading || (isSignUp && passwordStrength && passwordStrength.score < 2)}
             >
               <View style={styles.buttonGradient}>
                 {isLoading ? (
@@ -356,7 +392,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isDarkMode = false }) =>
                       color="#fff" 
                     />
                     <Text style={styles.primaryButtonText}>
-                      {isSignUp ? "Create Account" : "Sign In"}
+                      {isSignUp 
+                        ? (passwordStrength && passwordStrength.score < 2 
+                            ? `Password Too ${passwordStrength.label}` 
+                            : "Create Account")
+                        : "Sign In"
+                      }
                     </Text>
                   </>
                 )}
@@ -508,14 +549,18 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     paddingRight: 16,
     paddingLeft: 8,
   },
-  passwordHints: {
-    marginBottom: 16,
-    paddingHorizontal: 4,
+  suggestionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
   },
-  hintText: {
-    fontSize: 12,
-    color: isDarkMode ? '#888' : '#666',
-    marginBottom: 2,
+  suggestionText: {
+    fontSize: 13,
+    color: '#FF6B35',
+    fontWeight: '500',
   },
   primaryButton: {
     borderRadius: 12,

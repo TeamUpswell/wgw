@@ -20,6 +20,7 @@ import { ShareTemplateModal } from "./ShareTemplateModal";
 
 interface DailyProgressViewProps {
   todaysEntry: {
+    id: string;
     category: string;
     transcription: string;
     created_at: string; // <-- use string, not Date
@@ -32,6 +33,8 @@ interface DailyProgressViewProps {
   onEdit?: () => void;
   onToggleFavorite?: () => void;
   onSaveEdit?: (newText: string) => Promise<void>;
+  refreshEntries?: () => Promise<void>;
+  deleteEntry?: (entry: any) => Promise<void>;
 }
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -45,6 +48,8 @@ export const DailyProgressView: React.FC<DailyProgressViewProps> = ({
   onEdit,
   onToggleFavorite,
   onSaveEdit, // <-- Add this
+  refreshEntries,
+  deleteEntry,
 }) => {
   console.log("📊 DailyProgressView received props:", {
     todaysEntry,
@@ -60,12 +65,12 @@ export const DailyProgressView: React.FC<DailyProgressViewProps> = ({
   useEffect(() => {
     console.log("📊 DailyProgressView timestamp check:", {
       hasEntry: !!todaysEntry,
-      hasTimestamp: !!todaysEntry?.timestamp,
-      timestamp: todaysEntry?.timestamp,
-      type: typeof todaysEntry?.timestamp,
+      hasTimestamp: !!todaysEntry?.created_at,
+      timestamp: todaysEntry?.created_at,
+      type: typeof todaysEntry?.created_at,
     });
 
-    if (todaysEntry?.timestamp) {
+    if (todaysEntry?.created_at) {
       try {
         // Verify the timestamp is valid
         const testDate = new Date(todaysEntry.created_at);
@@ -156,7 +161,9 @@ export const DailyProgressView: React.FC<DailyProgressViewProps> = ({
       .update({ transcription: newText })
       .eq("id", todaysEntry.id);
     await new Promise((res) => setTimeout(res, 300)); // Add a short delay
-    await refreshEntries();
+    if (refreshEntries) {
+      await refreshEntries();
+    }
   };
 
   if (!todaysEntry) return null;

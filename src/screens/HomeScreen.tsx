@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   Button,
+  ActionSheetIOS,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useHomeScreen } from "../hooks/useHomeScreen";
@@ -44,6 +45,7 @@ import { NotificationManagementScreen } from "./NotificationManagementScreen";
 import { getStyles } from "../styles/homeScreenStyles";
 import { resizeImage, DEFAULT_IMAGE_OPTIONS } from "../utils/imageUtils";
 import { analyzeEntryWithImageAndText } from "../hooks/useHomeScreen";
+import { OfflineIndicator } from "../components/OfflineIndicator";
 
 interface HomeScreenProps {
   user: any;
@@ -330,6 +332,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     await refreshEntries(); // <-- ADD THIS LINE
   };
 
+  // Delete entry
+  const deleteEntry = async (entry: any) => {
+    Alert.alert(
+      "Delete Entry",
+      "Are you sure you want to delete this entry?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from("daily_entries")
+                .delete()
+                .eq("id", entry.id);
+              
+              if (error) throw error;
+              
+              await refreshEntries();
+              Alert.alert("Success", "Entry deleted");
+            } catch (error) {
+              console.error("Error deleting entry:", error);
+              Alert.alert("Error", "Failed to delete entry");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Edit handler for today's entry
   const handleEditTodaysEntry = () => {
     if (todaysEntry) {
@@ -546,6 +579,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <View style={styles.container}>
+      {/* Offline Indicator */}
+      <OfflineIndicator isDarkMode={isDarkMode} />
+      
       {/* Top Navigation Bar */}
       <TopNavigationBar
         user={user}
