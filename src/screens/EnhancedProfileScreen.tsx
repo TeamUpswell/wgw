@@ -20,6 +20,7 @@ import * as ImagePicker from "expo-image-picker";
 import { resizeImage, AVATAR_OPTIONS } from "../utils/imageUtils";
 import { getFollowing, getFollowers } from "../services/followService";
 import { NotificationService } from "../services/notificationService";
+import { checkAvatarsBucket, testStoragePermissions, testAvatarPermissions } from "../utils/storageTest";
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -278,8 +279,8 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
       const resizedImage = await resizeImage(originalUri, AVATAR_OPTIONS);
       console.log('✅ Avatar resized for upload:', resizedImage);
       
-      // Upload to Supabase Storage
-      const fileName = `avatar_${user.id}_${Date.now()}.jpg`;
+      // Upload to Supabase Storage (avatars bucket)
+      const fileName = `${user.id}/avatar_${Date.now()}.jpg`;
       console.log('📤 Uploading avatar with filename:', fileName);
       
       const response = await fetch(resizedImage.uri);
@@ -296,9 +297,9 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
         throw new Error('Image data is empty');
       }
       
-      console.log('☁️ Starting Supabase storage upload...');
+      console.log('☁️ Starting Supabase storage upload to avatars bucket...');
       const { data, error } = await supabase.storage
-        .from("entry-images")
+        .from("avatars")
         .upload(fileName, arrayBuffer, { 
           upsert: true, 
           contentType: "image/jpeg",
@@ -311,10 +312,10 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
         // Run storage diagnostics
         console.log('🔍 Running storage diagnostics...');
         const bucketCheck = await checkAvatarsBucket();
-        const permissionTest = await testStoragePermissions();
+        const permissionTest = await testAvatarPermissions(user.id);
         
         console.log('📊 Bucket check result:', bucketCheck);
-        console.log('📊 Permission test result:', permissionTest);
+        console.log('📊 Avatar permission test result:', permissionTest);
         
         throw error;
       }
@@ -323,7 +324,7 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
       
       // Get public URL
       const { data: publicUrlData } = supabase.storage
-        .from("entry-images")
+        .from("avatars")
         .getPublicUrl(fileName);
       
       const publicUrl = publicUrlData?.publicUrl;
