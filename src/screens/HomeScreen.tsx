@@ -556,40 +556,69 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Main Content Area */}
       <View style={{ flex: 1 }}>
-        {/* Always show Social Feed with integrated recording */}
-        <View style={{ flex: 1 }}>
-          {/* Recording Section - Show when adding entry */}
-          {(!todaysEntry || isAddingAdditionalEntry) && (
-            <View style={{ 
-              backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f9fa',
-              paddingVertical: 16,
-              paddingHorizontal: 20,
-              borderBottomWidth: 1,
-              borderBottomColor: isDarkMode ? '#333' : '#e0e0e0'
-            }}>
-              <RecorderSection
-                selectedCategory={selectedCategory || categories?.[0] || "Personal Growth"}
-                onRecordingComplete={(audioUri, transcription, category) => {
-                  onRecordingComplete(audioUri, transcription, category);
-                  setIsAddingAdditionalEntry(false); // Reset after recording
-                }}
-                isProcessing={isProcessing}
-                isDarkMode={isDarkMode}
-                categories={categories || []}
-                onCategorySelect={handleCategorySelect}
-                compact={true}
-                onAddImagePress={handleAddImage}
-                onCameraPress={() => setShowCamera(true)}
-                isAddingAdditionalEntry={isAddingAdditionalEntry}
-                onPrivacyChange={setPrivacyState}
-                initialPrivacy={privacyState}
-              />
+        {isAddingAdditionalEntry ? (
+          /* Show only recording interface when adding additional entry */
+          <View style={{ 
+            flex: 1,
+            backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f9fa',
+            justifyContent: 'center',
+            paddingHorizontal: 20
+          }}>
+            <RecorderSection
+              selectedCategory={selectedCategory || categories?.[0] || "Personal Growth"}
+              onRecordingComplete={(audioUri, transcription, category) => {
+                onRecordingComplete(audioUri, transcription, category);
+                setIsAddingAdditionalEntry(false); // Reset after recording
+              }}
+              isProcessing={isProcessing}
+              isDarkMode={isDarkMode}
+              categories={categories || []}
+              onCategorySelect={handleCategorySelect}
+              compact={false} // Use full size for better visibility
+              onAddImagePress={handleAddImage}
+              onCameraPress={() => setShowCamera(true)}
+              isAddingAdditionalEntry={isAddingAdditionalEntry}
+              onPrivacyChange={setPrivacyState}
+              initialPrivacy={privacyState}
+            />
+          </View>
+        ) : (
+          /* Normal view: Social feed with optional recording section at top */
+          <>
+            {/* Recording Section - Show when no entry today */}
+            {!todaysEntry && (
+              <View style={{ 
+                backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f9fa',
+                paddingVertical: 16,
+                paddingHorizontal: 20,
+                borderBottomWidth: 1,
+                borderBottomColor: isDarkMode ? '#333' : '#e0e0e0'
+              }}>
+                <RecorderSection
+                  selectedCategory={selectedCategory || categories?.[0] || "Personal Growth"}
+                  onRecordingComplete={(audioUri, transcription, category) => {
+                    onRecordingComplete(audioUri, transcription, category);
+                  }}
+                  isProcessing={isProcessing}
+                  isDarkMode={isDarkMode}
+                  categories={categories || []}
+                  onCategorySelect={handleCategorySelect}
+                  compact={true}
+                  onAddImagePress={handleAddImage}
+                  onCameraPress={() => setShowCamera(true)}
+                  isAddingAdditionalEntry={false}
+                  onPrivacyChange={setPrivacyState}
+                  initialPrivacy={privacyState}
+                />
+              </View>
+            )}
+            
+            {/* Social Feed - Takes remaining space */}
+            <View style={{ flex: 1 }}>
+              <SocialFeedScreen user={user} />
             </View>
-          )}
-          
-          {/* Social Feed - Always visible */}
-          <SocialFeedScreen user={user} />
-        </View>
+          </>
+        )}
       </View>
 
       {/* Bottom Navigation */}
@@ -617,7 +646,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           setShowInspiration(true);
         }}
         isDarkMode={isDarkMode}
-        addAnotherActive={!!todaysEntry}
+        addAnotherActive={!!todaysEntry && !isAddingAdditionalEntry}
         currentTab={currentTab}
       />
 
