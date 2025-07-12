@@ -298,13 +298,34 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
       }
       
       console.log('☁️ Starting Supabase storage upload to avatars bucket...');
-      const { data, error } = await supabase.storage
+      let { data, error } = await supabase.storage
         .from("avatars")
         .upload(fileName, arrayBuffer, { 
           upsert: true, 
           contentType: "image/jpeg",
           cacheControl: "3600"
         });
+      
+      // Fallback to entry-images bucket if avatars bucket doesn't exist
+      if (error && error.message?.includes('bucket')) {
+        console.log('⚠️ Avatars bucket not found, falling back to entry-images bucket...');
+        const fallbackFileName = `avatars/${fileName}`;
+        const fallbackResult = await supabase.storage
+          .from("entry-images")
+          .upload(fallbackFileName, arrayBuffer, { 
+            upsert: true, 
+            contentType: "image/jpeg",
+            cacheControl: "3600"
+          });
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+        
+        if (!error) {
+          // Update fileName for URL generation
+          fileName = fallbackFileName;
+          console.log('✅ Successfully uploaded to entry-images bucket with fallback path');
+        }
+      }
       
       if (error) {
         console.error('❌ Supabase upload error:', error);
@@ -322,9 +343,10 @@ export const EnhancedProfileScreen: React.FC<ProfileScreenProps> = ({
       
       console.log('✅ File uploaded successfully:', data);
       
-      // Get public URL
+      // Get public URL from the correct bucket
+      const bucketName = fileName.startsWith('avatars/') ? "entry-images" : "avatars";
       const { data: publicUrlData } = supabase.storage
-        .from("avatars")
+        .from(bucketName)
         .getPublicUrl(fileName);
       
       const publicUrl = publicUrlData?.publicUrl;
