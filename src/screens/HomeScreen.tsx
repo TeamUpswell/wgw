@@ -20,7 +20,6 @@ import { supabase } from "../config/supabase";
 
 // Component imports
 import { RecorderSection } from "../components/RecorderSection";
-import { WelcomeScreen } from "../components/WelcomeScreen";
 import { WeeklyProgress } from "../components/WeeklyProgress";
 import { EncouragementMessage } from "../components/EncouragementMessage";
 import { CelebrationView } from "../components/CelebrationView";
@@ -81,7 +80,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [userStats, setUserStats] = useState({ totalEntries: 0, currentStreak: 0 });
   const socialFeedRef = useRef<any>(null); // Add ref for social feed
   const [showSocialFeed, setShowSocialFeed] = useState(false); // Optional: control feed modal
-  const [notificationData, setNotificationData] = useState<any>(null); // Add this state
 
   const {
     // State
@@ -105,6 +103,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     // Other state
     showNotification,
     setShowNotification,
+    notificationData, // <-- Add this missing destructure!
+    setNotificationData,
     processingStage,
     refreshEntries, // <-- make sure you destructure this!
   } = useHomeScreen(user, isDarkMode);
@@ -114,26 +114,56 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     console.log("🔍 DEBUG - From useHomeScreen:");
     console.log("- entries:", entries);
     console.log("- todaysEntries:", todaysEntries);
-    console.log("- entries type:", typeof entries);
-    console.log("- todaysEntries type:", typeof todaysEntries);
-    console.log("- entries is Array?", Array.isArray(entries));
-    console.log("- todaysEntries is Array?", Array.isArray(todaysEntries));
-  }, [entries, todaysEntries]);
+    console.log("- isProcessing:", isProcessing);
+    console.log("- showNotification:", showNotification);
+    console.log("- notificationData:", notificationData);
+    console.log("- processingStage:", processingStage);
+  }, [entries, todaysEntries, isProcessing, showNotification, notificationData, processingStage]);
+
+  // Debug notification modal state
+  useEffect(() => {
+    console.log("🔔 Notification state changed:", {
+      showNotification,
+      hasNotificationData: !!notificationData,
+      notificationDataPreview: notificationData ? {
+        hasTranscription: !!notificationData.transcription,
+        transcriptionPreview: notificationData.transcription?.substring(0, 50),
+        hasAiResponse: !!notificationData.aiResponse,
+        aiResponsePreview: notificationData.aiResponse?.substring(0, 50),
+        hasId: !!notificationData.id
+      } : null
+    });
+    
+    // Check if modal should be rendered
+    if (showNotification && notificationData) {
+      console.log("🎉 NotificationModal should be rendered with:", {
+        transcription: notificationData.transcription,
+        aiResponse: notificationData.aiResponse
+      });
+    }
+  }, [showNotification, notificationData]);
 
   // Always use the most recent entry for today
   useEffect(() => {
-    if (todaysEntries && todaysEntries.length > 0) {
+    console.log("🔍 todaysEntries changed:", {
+      count: todaysEntries?.length || 0,
+      entries: todaysEntries,
+      isAddingAdditional: isAddingAdditionalEntry
+    });
+    
+    if (todaysEntries && todaysEntries.length > 0 && !isAddingAdditionalEntry) {
       const sorted = [...todaysEntries].sort(
         (a, b) =>
           new Date(b.created_at || b.createdAt).getTime() -
           new Date(a.created_at || a.createdAt).getTime()
       );
       setTodaysEntry(sorted[0]);
-      console.log("Updated todaysEntry:", sorted[0]);
-    } else {
+      console.log("✅ Updated todaysEntry:", sorted[0]?.id, "- Should show social feed");
+    } else if (!isAddingAdditionalEntry) {
       setTodaysEntry(null);
+      console.log("❌ No today's entries found - Should show welcome screen");
     }
-  }, [todaysEntries]);
+  }, [todaysEntries, isAddingAdditionalEntry]);
 
   // Debug useEffect - update this one
   useEffect(() => {
@@ -235,6 +265,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     category: string
   ) => {
     try {
+      console.log("🎤 Recording complete, processing...");
+      
       // Call the hook's handleRecordingComplete and get the new entry if possible
       const newEntry = await handleRecordingComplete(
         audioUri,
@@ -244,11 +276,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       // If your hook returns the new entry, use it:
       if (newEntry) {
+        console.log("✅ New entry received, updating todaysEntry:", newEntry);
         setTodaysEntry(newEntry); // <-- Use the full entry object!
+        
+        // Also ensure we refresh entries to get the latest state
+        if (refreshEntries) {
+          console.log("🔄 Refreshing entries list...");
+          await refreshEntries();
+        }
+      } else {
+        console.log("⚠️ No entry returned, waiting for useEffect to update");
       }
       // If not, do nothing. The useEffect on entries/todaysEntries will update todaysEntry.
     } catch (error) {
       console.error("Error in onRecordingComplete:", error);
+      Alert.alert("Error", "Failed to save your entry. Please try again.");
     }
   };
 
@@ -326,6 +368,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     imageUri: string;
     audioUri?: string;
     isPrivate?: boolean;
+    category?: string;
   }) => {
     try {
       console.log("📷 Processing image submission:", {
@@ -409,10 +452,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       console.log('🤖 Generating AI analysis for image and text...');
       
       // Generate AI response analyzing both the image and text
+      const categoryToUse = data.category || selectedCategory || "Personal Growth";
       const aiResponse = await analyzeEntryWithImageAndText(
         finalDescription,
         imageUrl,
-        selectedCategory || "Personal Growth"
+        categoryToUse
       );
       
       console.log('✅ AI analysis complete:', aiResponse.substring(0, 100) + '...');
@@ -420,7 +464,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       console.log('💾 Creating database entry with:', {
         user_id: user.id,
         transcription: finalDescription,
-        category: selectedCategory || "Personal Growth",
+        category: categoryToUse,
         image_url: imageUrl,
         ai_response: aiResponse,
       });
@@ -430,7 +474,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         .insert({
           user_id: user.id,
           transcription: finalDescription,
-          category: selectedCategory || "Personal Growth",
+          category: categoryToUse,
           image_url: imageUrl,
           ai_response: aiResponse,
           is_private: data.isPrivate || false,
@@ -444,24 +488,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         return;
       }
       console.log("✅ Entry created successfully:", newEntry);
+      
+      // Update todaysEntry immediately with the new entry
+      setTodaysEntry(newEntry);
+      
+      // Then refresh all entries
       await refreshEntries();
+      
+      // Refresh social feed if visible
       if (showSocialFeed && socialFeedRef.current?.refresh) {
         socialFeedRef.current.refresh();
       }
       console.log('📢 Setting notification data:', {
         transcription: finalDescription.slice(0, 50) + '...',
         aiResponse: aiResponse.slice(0, 100) + '...',
-        category: selectedCategory || "Personal Growth",
+        category: categoryToUse,
       });
       
       setNotificationData({
         transcription: finalDescription,
         aiResponse: aiResponse,
-        category: selectedCategory || "Personal Growth",
+        category: categoryToUse,
       });
       setShowNotification(true);
       setShowImageModal(false);
       setSelectedImage(null);
+      
+      // Reset isAddingAdditionalEntry so user goes to social feed after notification
+      setIsAddingAdditionalEntry(false);
       if (Platform.OS === "ios") {
         await Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success
@@ -502,53 +556,52 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Main Content Area */}
       <View style={{ flex: 1 }}>
-        {!todaysEntry ? (
-          /* Welcome/Onboarding Screen when no entry today */
-          <WelcomeScreen
-            user={user}
-            isDarkMode={isDarkMode}
-            categories={categories || []}
-            selectedCategory={selectedCategory || categories?.[0] || "Personal Growth"}
-            onCategorySelect={handleCategorySelect}
-            onRecordingComplete={(entry) => {
-              onRecordingComplete(entry);
-              setIsAddingAdditionalEntry(false); // Reset after recording
-            }}
-            onAddImagePress={handleAddImage}
-            onCameraPress={() => setShowCamera(true)}
-            isProcessing={isProcessing}
-            isFirstTime={isFirstTime}
-            isAddingAdditionalEntry={isAddingAdditionalEntry}
-            totalEntries={userStats.totalEntries}
-            currentStreak={userStats.currentStreak}
-            onPrivacyChange={setPrivacyState}
-            initialPrivacy={privacyState}
-          />
-        ) : (
-          /* Social Feed when entry is complete */
+        {/* Always show Social Feed with integrated recording */}
+        <View style={{ flex: 1 }}>
+          {/* Recording Section - Show when adding entry */}
+          {(!todaysEntry || isAddingAdditionalEntry) && (
+            <View style={{ 
+              backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f9fa',
+              paddingVertical: 16,
+              paddingHorizontal: 20,
+              borderBottomWidth: 1,
+              borderBottomColor: isDarkMode ? '#333' : '#e0e0e0'
+            }}>
+              <RecorderSection
+                selectedCategory={selectedCategory || categories?.[0] || "Personal Growth"}
+                onRecordingComplete={(audioUri, transcription, category) => {
+                  onRecordingComplete(audioUri, transcription, category);
+                  setIsAddingAdditionalEntry(false); // Reset after recording
+                }}
+                isProcessing={isProcessing}
+                isDarkMode={isDarkMode}
+                categories={categories || []}
+                onCategorySelect={handleCategorySelect}
+                compact={true}
+                onAddImagePress={handleAddImage}
+                onCameraPress={() => setShowCamera(true)}
+                isAddingAdditionalEntry={isAddingAdditionalEntry}
+                onPrivacyChange={setPrivacyState}
+                initialPrivacy={privacyState}
+              />
+            </View>
+          )}
+          
+          {/* Social Feed - Always visible */}
           <SocialFeedScreen user={user} />
-        )}
+        </View>
       </View>
 
       {/* Bottom Navigation */}
       <BottomNavigation
         onHomePress={() => {
           setCurrentTab('home');
-          // If user is on add post screen (no todaysEntry), check if they have any entry today
-          if (!todaysEntry && todaysEntries && todaysEntries.length > 0) {
-            // If they have entries but todaysEntry is null due to adding additional, 
-            // restore the most recent entry to show social feed
-            const sorted = [...todaysEntries].sort(
-              (a, b) =>
-                new Date(b.created_at || b.createdAt).getTime() -
-                new Date(a.created_at || a.createdAt).getTime()
-            );
-            setTodaysEntry(sorted[0]);
-          }
           setIsAddingAdditionalEntry(false);
+          
+          // Force refresh entries to get latest data
+          refreshEntries();
         }}
         onAddAnotherPress={() => {
-          setTodaysEntry(null);
           setIsAddingAdditionalEntry(true);
         }}
         onJournalPress={() => {
@@ -690,7 +743,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {showNotification && notificationData && (
         <NotificationModal
           visible={showNotification}
-          onClose={() => setShowNotification(false)}
+          onClose={() => {
+            console.log("🔔 Closing notification modal");
+            setShowNotification(false);
+          }}
           title="🎉 Entry Saved!"
           transcription={notificationData.transcription}
           message={notificationData.aiResponse}
@@ -788,6 +844,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           onSubmit={handleImageSubmit}
           isDarkMode={isDarkMode}
           initialPrivacy={privacyState}
+          categories={categories}
+          selectedCategory={selectedCategory}
         />
       )}
 

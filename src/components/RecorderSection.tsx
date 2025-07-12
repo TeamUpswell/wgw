@@ -21,6 +21,7 @@ import { Audio } from "expo-av";
 // Import supabase client
 import { resizeImage, DEFAULT_IMAGE_OPTIONS } from "../utils/imageUtils";
 import { createClient } from "@supabase/supabase-js";
+import { transcribeAudio } from "../services/transcriptionService";
 
 // Initialize client using environment variables
 const supabase = createClient(
@@ -118,7 +119,7 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
 
       // Haptic feedback
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      <Ionicons name="image-outline" size={48} color="#fff" />;
+      
       // Start duration counter
       durationInterval.current = setInterval(() => {
         setRecordingDuration((prev) => prev + 1);
@@ -167,7 +168,19 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
       console.log("✅ Recording stopped, URI:", uri);
 
       if (uri) {
-        onRecordingComplete(uri, "", selectedCategory);
+        console.log("🎤 Starting transcription process...");
+        try {
+          // Transcribe the audio
+          const transcription = await transcribeAudio(uri);
+          console.log("✅ Transcription completed:", transcription.substring(0, 50) + "...");
+          console.log("📞 Calling onRecordingComplete with:", { uri, transcription, category: selectedCategory });
+          onRecordingComplete(uri, transcription, selectedCategory);
+        } catch (transcriptionError) {
+          console.error("❌ Transcription failed:", transcriptionError);
+          // Fallback to a basic transcription
+          console.log("📞 Using fallback transcription");
+          onRecordingComplete(uri, "Voice recording (transcription failed)", selectedCategory);
+        }
       }
 
       recording.current = null;
@@ -514,8 +527,12 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
             {
               marginLeft: 12,
               backgroundColor: "#FF6B35",
-              width: 50,
+              width: 70,
               height: 50,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 8,
             },
             isProcessing && { opacity: 0.4 },
           ]}
@@ -525,9 +542,19 @@ export const RecorderSection: React.FC<RecorderSectionProps> = ({
         >
           <Ionicons
             name="camera"
-            size={28}
+            size={20}
             color={isProcessing ? "#bbb" : "#fff"}
+            style={{ marginRight: 4 }}
           />
+          <Text
+            style={{
+              color: isProcessing ? "#bbb" : "#fff",
+              fontSize: 11,
+              fontWeight: "600",
+            }}
+          >
+            Photo
+          </Text>
         </TouchableOpacity>
         {/* Privacy toggle */}
         <View

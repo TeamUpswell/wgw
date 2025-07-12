@@ -306,9 +306,11 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
   const [isRecording, setIsRecording] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationData, setNotificationData] = useState<{
-    transcription?: string; // ← Add this
+    transcription?: string;
     aiResponse: string;
     category?: string;
+    favorite?: boolean;
+    id?: string;
   } | null>(null);
 
   // Add processing stage state
@@ -324,18 +326,33 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
     if (!entries || entries.length === 0) return [];
 
     const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
+    // Use local date string instead of UTC
+    const todayStr = today.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local time
 
     console.log("📅 Computing todaysEntries:", {
       entriesCount: entries.length,
       todayStr,
+      localTime: today.toLocaleString(),
     });
 
     const filtered = entries.filter((entry) => {
-      const entryDateStr = new Date(entry.created_at)
-        .toISOString()
-        .split("T")[0];
-      return entryDateStr === todayStr;
+      if (!entry.created_at) return false;
+      
+      const entryDate = new Date(entry.created_at);
+      // Convert to local date string
+      const entryDateStr = entryDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local time
+      
+      const isToday = entryDateStr === todayStr;
+      
+      if (isToday) {
+        console.log("📅 Found today's entry:", {
+          id: entry.id,
+          created_at: entry.created_at,
+          localTime: entryDate.toLocaleString(),
+        });
+      }
+      
+      return isToday;
     });
 
     console.log("📅 Filtered todaysEntries count:", filtered.length);
@@ -606,15 +623,13 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
     category: string
   ) => {
     try {
-      setProcessingStage("transcribing");
+      console.log("🎯 handleRecordingComplete called with:", { transcription: transcription.substring(0, 50), category });
+      setProcessingStage("analyzing");
       setIsProcessing(true);
 
-      // Transcribe audio
-      const finalTranscription =
-        transcription || (await transcribeAudio(audioUri));
-      console.log("📝 Transcription:", finalTranscription);
-
-      setProcessingStage("analyzing");
+      // Use the transcription provided (already done in RecorderSection)
+      const finalTranscription = transcription;
+      console.log("📝 Using provided transcription:", finalTranscription);
 
       // Get AI response
       const aiResponse = await getAIResponse(finalTranscription, category);
@@ -622,22 +637,25 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
 
       setProcessingStage("saving");
 
-      // Store notification data BEFORE creating entry
-      setNotificationData({
-        transcription: finalTranscription,
-        aiResponse: aiResponse,
-      });
-
-      // Create the entry with the transcription
+      // Create the entry first to get the ID
       const newEntry = await createEntry(
         user.id,
-        finalTranscription, // ← Make sure this is passed
+        finalTranscription,
         aiResponse,
         category,
         audioUri
       );
 
       if (newEntry) {
+        // Store notification data AFTER creating entry (so we have the ID)
+        console.log("🔔 Setting notification data:", { finalTranscription, aiResponse, entryId: newEntry.id });
+        setNotificationData({
+          transcription: finalTranscription,
+          aiResponse: aiResponse,
+          category: category,
+          favorite: false, // Default to false
+          id: newEntry.id,
+        });
         console.log("✅ Entry created:", newEntry);
 
         // Update streak
@@ -649,10 +667,33 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
         await refreshEntries();
 
         // Show notification modal
+        console.log("🔔 Setting showNotification to true - Modal should appear now!");
         setShowNotification(true);
+        
+        // Additional debug to confirm notification data is set
+        console.log("🔔 Final notification setup:", {
+          transcription: finalTranscription.substring(0, 50) + "...",
+          hasAiResponse: !!aiResponse,
+          entryId: newEntry.id
+        });
+        
+        // Debug: Check notification state immediately
+        setTimeout(() => {
+          console.log("🔔 Notification state check (after timeout):", {
+            showNotification: true, // This is what we set it to
+            hasNotificationData: !!notificationData
+          });
+        }, 100);
 
         // Check for milestone
         checkMilestone(updatedStreak);
+        
+        // Reset processing state before returning
+        setProcessingStage(null);
+        setIsProcessing(false);
+        
+        // Return the new entry so HomeScreen can use it
+        return newEntry;
       }
 
       setProcessingStage(null);
@@ -661,6 +702,7 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
       console.error("Error processing recording:", error);
       setProcessingStage(null);
       setIsProcessing(false);
+      throw error; // Re-throw so caller knows it failed
     }
   };
 
@@ -704,12 +746,15 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
             ai_response: aiResponse,
             category,
             audio_url: audioUri,
+            created_at: new Date().toISOString(), // Ensure consistent timestamp
           },
         ])
         .select()
         .single();
 
       if (error) throw error;
+      
+      console.log("✅ Entry created with timestamp:", data.created_at);
       return data;
     } catch (error) {
       console.error("❌ Error creating entry:", error);
@@ -778,28 +823,28 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
     setShowHistory(false);
     setShowDrawer(false);
     setShowCelebration(false);
-    setShowNotification(false);
+    // Don't reset showNotification here - let it be controlled by recording completion flow
   };
 
   // Replace the existing useEffect that sets showSettings to false with this more comprehensive one:
   useEffect(() => {
-    console.log("🔄 Component mounted - forcing all modals closed");
+    console.log("🔄 Component mounted - forcing all modals closed (except notification)");
     setShowSettings(false);
     setShowHistory(false);
     setShowDrawer(false);
     setShowCelebration(false);
-    setShowNotification(false);
+    // Don't reset showNotification here - let it be controlled by recording completion flow
   }, []); // Empty dependency array - runs once on mount
 
   // Also update the user effect to be more explicit:
   useEffect(() => {
     if (user?.id) {
-      // Reset modal states when user loads
+      // Reset modal states when user loads (except notification which should be controlled by recording flow)
       setShowSettings(false);
       setShowHistory(false);
       setShowDrawer(false);
       setShowCelebration(false);
-      setShowNotification(false);
+      // Don't reset showNotification here - let it be controlled by recording completion flow
 
       // Load user data immediately (no timeout needed)
       loadUserEntries();
@@ -831,6 +876,7 @@ export const useHomeScreen = (user: any, isDarkMode: boolean) => {
       showNotification,
       setShowNotification,
       notificationData,
+      setNotificationData,
       processingStage,
       setProcessingStage,
 

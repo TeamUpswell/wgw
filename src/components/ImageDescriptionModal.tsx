@@ -25,9 +25,11 @@ import { transcribeAudio } from "../services/transcriptionService";
 interface ImageDescriptionModalProps {
   imageUri?: string;
   onClose: () => void;
-  onSubmit: (data: { description: string; imageUri: string; audioUri?: string; isPrivate?: boolean }) => void;
+  onSubmit: (data: { description: string; imageUri: string; audioUri?: string; isPrivate?: boolean; category?: string }) => void;
   isDarkMode?: boolean;
   initialPrivacy?: boolean;
+  categories?: string[];
+  selectedCategory?: string;
 }
 
 export const ImageDescriptionModal: React.FC<ImageDescriptionModalProps> = ({ 
@@ -35,7 +37,9 @@ export const ImageDescriptionModal: React.FC<ImageDescriptionModalProps> = ({
   onClose, 
   onSubmit,
   isDarkMode = false,
-  initialPrivacy = false 
+  initialPrivacy = false,
+  categories = ['Personal Growth', 'Exercise', 'Relationships', 'Work', 'Learning', 'Health', 'Creativity'],
+  selectedCategory: initialSelectedCategory = 'Personal Growth'
 }) => {
   const [imageUri, setImageUri] = useState(initialImageUri || null);
   const [description, setDescription] = useState("");
@@ -45,6 +49,7 @@ export const ImageDescriptionModal: React.FC<ImageDescriptionModalProps> = ({
   const [isPrivate, setIsPrivate] = useState(initialPrivacy);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState(initialSelectedCategory);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -181,7 +186,7 @@ export const ImageDescriptionModal: React.FC<ImageDescriptionModalProps> = ({
     }, 2500);
     
     try {
-      await onSubmit({ description, imageUri, audioUri: audioUri || undefined, isPrivate });
+      await onSubmit({ description, imageUri, audioUri: audioUri || undefined, isPrivate, category: selectedCategory });
       clearInterval(stageTimer);
     } catch (error) {
       clearInterval(stageTimer);
@@ -222,6 +227,44 @@ export const ImageDescriptionModal: React.FC<ImageDescriptionModalProps> = ({
 
           {/* Image preview */}
           {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
+
+          {/* Category Selector */}
+          {imageUri && (
+            <View style={styles.categoryContainer}>
+              <Text style={[styles.categoryLabel, { color: isDarkMode ? '#fff' : '#333' }]}>
+                Category
+              </Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoryScrollView}
+                contentContainerStyle={styles.categoryScrollContent}
+              >
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.categoryChip,
+                      selectedCategory === category && styles.categoryChipSelected,
+                      { backgroundColor: isDarkMode ? '#333' : '#f0f0f0' },
+                      selectedCategory === category && { backgroundColor: '#FF6B35' }
+                    ]}
+                    onPress={() => setSelectedCategory(category)}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        { color: isDarkMode ? '#fff' : '#333' },
+                        selectedCategory === category && { color: '#fff' }
+                      ]}
+                    >
+                      {category}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           {/* Input and mic */}
           {imageUri && (
@@ -559,6 +602,38 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF3B30",
     justifyContent: "center",
     alignItems: "center",
+  },
+  categoryContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  categoryLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  categoryScrollView: {
+    maxHeight: 50,
+  },
+  categoryScrollContent: {
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 4,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  categoryChipSelected: {
+    backgroundColor: '#FF6B35',
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

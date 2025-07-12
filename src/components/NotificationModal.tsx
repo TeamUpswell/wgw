@@ -42,6 +42,17 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   onSaveEdit,
   favorite,
 }) => {
+  console.log("🎉 NotificationModal received props:", {
+    visible,
+    title,
+    hasTranscription: !!transcription,
+    transcriptionLength: transcription?.length || 0,
+    transcriptionPreview: transcription?.substring(0, 50) || "No transcription",
+    hasMessage: !!message,
+    messageLength: message?.length || 0,
+    messagePreview: message?.substring(0, 50) || "No message"
+  });
+  
   const styles = getStyles(isDarkMode);
 
   const [editing, setEditing] = useState(false);
@@ -75,7 +86,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             showsVerticalScrollIndicator={true}
             bounces={true}
           >
-            {transcription && (
+            {transcription && transcription.trim() ? (
               <View style={styles.transcriptionContainer}>
                 <Text style={styles.transcriptionLabel}>What you said:</Text>
                 {editing ? (
@@ -143,10 +154,17 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                   )}
                 </View>
               </View>
-            )}
+            ) : null}
 
             {/* AI Response */}
-            <Text style={styles.message}>{message}</Text>
+            {message && message.trim() ? (
+              <View>
+                <Text style={styles.responseLabel}>AI Reflection:</Text>
+                <Text style={styles.message}>{message}</Text>
+              </View>
+            ) : (
+              <Text style={styles.message}>No AI response available</Text>
+            )}
           </ScrollView>
 
           {/* Fixed Continue Button */}
@@ -215,6 +233,13 @@ const getStyles = (isDarkMode: boolean) =>
       fontSize: 16,
       lineHeight: 24,
       color: isDarkMode ? "#e0e0e0" : "#333",
+    },
+    responseLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDarkMode ? "#fff" : "#333",
+      marginBottom: 8,
+      marginTop: 16,
     },
     message: {
       fontSize: 16,

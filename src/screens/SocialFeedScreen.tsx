@@ -67,6 +67,7 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const newEntryAnim = useRef(new Animated.Value(0)).current;
+  const lastFetchTime = useRef<number>(0);
 
   // Set up real-time subscription for new entries
   useEffect(() => {
@@ -110,11 +111,16 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
   }, [user?.id]);
 
   // Initial load
+  // Combined effect to avoid double-loading
   useEffect(() => {
-    if (!user) return;
-    console.log("[SocialFeedScreen] useEffect running, user:", user);
+    console.log("🔄 [SocialFeedScreen] useEffect triggered, user:", !!user, "user.id:", user?.id);
+    if (!user?.id) {
+      console.log("❌ [SocialFeedScreen] No user.id, skipping fetchFeed");
+      return;
+    }
+    console.log("📊 [SocialFeedScreen] Loading feed (limit: 20 entries) - this should only happen once per session");
     fetchFeed();
-  }, [user?.id]);
+  }, [user?.id]); // Only trigger when user ID changes
 
   // Animate in on mount
   useEffect(() => {
@@ -188,17 +194,37 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
   };
 
   const fetchFeed = async () => {
-    console.log("[SocialFeedScreen] fetchFeed called, user:", user);
+    console.log("📊 [SocialFeedScreen] fetchFeed called, user:", user);
     if (!user?.id) {
-      console.log("[SocialFeedScreen] fetchFeed: No user.id, aborting");
+      console.log("❌ [SocialFeedScreen] fetchFeed: No user.id, aborting");
       return;
     }
+    
+    // Debounce: Don't fetch if we just fetched within the last 2 seconds
+    const now = Date.now();
+    if (now - lastFetchTime.current < 2000) {
+      console.log("⏱️ [SocialFeedScreen] Debounced: Skipping fetch (too recent)");
+      return;
+    }
+    lastFetchTime.current = now;
     
     if (!refreshing) {
       setLoading(true);
     }
     
     try {
+      // Test: Check if user has ANY entries at all
+      const { data: userEntriesTest, error: testError } = await supabase
+        .from("daily_entries")
+        .select("id, created_at, transcription")
+        .eq("user_id", user.id);
+      
+      console.log("🧪 User entries test:", {
+        userEntriesCount: userEntriesTest?.length || 0,
+        userEntriesTest: userEntriesTest,
+        testError: testError
+      });
+      
       // 1. Get list of user IDs to show (self + following)
       const { data: followingData, error: followingError } = await getFollowing(
         user.id
@@ -209,34 +235,70 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
       console.log("userIds for feed:", userIds);
       
       // 2. Fetch entries for these users
+      console.log("🔍 SocialFeed fetching entries for userIds:", userIds);
+      console.log("🔍 Current user ID:", user.id);
+      
+      // Try a simpler query first - just get user's own entries
+      const { data: userOnlyEntries, error: userOnlyError } = await supabase
+        .from("daily_entries")
+        .select("*, user:users(id, email, username, display_name, avatar_url, bio)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5); // Reduced from 10 to 5 for debugging only
+      
+      console.log("🔍 User-only entries query:", {
+        count: userOnlyEntries?.length || 0,
+        entries: userOnlyEntries,
+        error: userOnlyError
+      });
+      
       const { data: entriesData, error } = await supabase
         .from("daily_entries")
-        .select("*, user:users(id, username, display_name, avatar_url, bio)")
+        .select("*, user:users(id, email, username, display_name, avatar_url, bio)")
         .in("user_id", userIds)
         .or(`is_private.eq.false,user_id.eq.${user.id}`) // Show public entries OR user's own private entries
         .order("created_at", { ascending: false })
-        .limit(50); // Limit for performance
+        .limit(20); // Reduced from 50 to 20 for better performance
         
-      console.log("entriesData:", entriesData, "error:", error);
+      console.log("📊 SocialFeed query results:", {
+        entriesCount: entriesData?.length || 0,
+        entriesData: entriesData,
+        error: error
+      });
       
       if (error) {
+        console.error("❌ SocialFeed query error:", error);
         setEntries([]);
       } else {
+        console.log("✅ SocialFeed raw results:", {
+          totalEntries: entriesData?.length || 0,
+          firstEntryId: entriesData?.[0]?.id,
+          allEntryIds: entriesData?.map(e => e.id),
+          firstEntryUser: entriesData?.[0]?.user
+        });
+        
         // Attach username to each entry for FeedEntryCard
         const withUserInfo = entriesData.map((entry: any) => {
           console.log('🔍 SocialFeed entry:', {
             id: entry.id,
             image_url: entry.image_url,
             transcription: entry.transcription?.substring(0, 30) + '...',
-            created_at: entry.created_at
+            created_at: entry.created_at,
+            user: entry.user
           });
           return {
             ...entry,
-            username: entry.user?.username,
-            display_name: entry.user?.display_name,
+            username: entry.user?.username || entry.user?.email || 'Unknown User',
+            display_name: entry.user?.display_name || entry.user?.email || 'Unknown User',
             avatar_url: entry.user?.avatar_url,
             bio: entry.user?.bio,
           };
+        });
+        
+        console.log("🎯 Final processed entries being set:", {
+          count: withUserInfo.length,
+          firstProcessedEntry: withUserInfo[0],
+          allProcessedIds: withUserInfo.map(e => e.id)
         });
         
         // Animate entries in
@@ -624,6 +686,22 @@ export const SocialFeedScreen: React.FC<SocialFeedScreenProps> = ({
                 <Text style={styles.empty}>
                   No entries yet. Start following friends or add your own!
                 </Text>
+                <TouchableOpacity 
+                  style={{
+                    backgroundColor: '#FF6B35',
+                    padding: 12,
+                    borderRadius: 8,
+                    marginTop: 16
+                  }}
+                  onPress={() => {
+                    console.log("🔄 Manual refresh button pressed");
+                    fetchFeed();
+                  }}
+                >
+                  <Text style={{color: 'white', textAlign: 'center', fontWeight: '600'}}>
+                    Refresh Feed
+                  </Text>
+                </TouchableOpacity>
               </Animated.View>
             ) : (
               getFilteredEntries().map((entry, index) => (
